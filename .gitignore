@@ -8,3 +8,6 @@
 # Messdaten
 data/
 *.csv
+
+# Signierschlüssel nie einchecken
+*.pem
