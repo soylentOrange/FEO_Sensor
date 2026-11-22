@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Kompaktes Lochraster-Layout v2: MCP602 direkt eingeloetet, XIAO per Kabel,
-JST-XH 4-pol (aussen: LiPo+-Schalter, innen: FSR). Prueft Netzliste, zeichnet SVG."""
+"""Compact perfboard layout: MCP602 soldered directly, XIAO connected by wires,
+JST-XH 4-pin (outer pins: LiPo+ switch, inner pins: FSR). Checks the netlist, draws the SVG."""
 import itertools, sys
 
 NX, NY = 7, 7
 ROWS = "ABCDEFG"
 def nm(p): return f"{ROWS[p[1]-1]}{p[0]}"
 
-# Kanaltausch ggue. v1: Verstaerker B (5-7) = FSR-Stufe, A (1-3) = Sallen-Key
+# Channels: amplifier B (5-7) = FSR stage, A (1-3) = Sallen-Key
 U1 = {1: (3, 2), 2: (3, 3), 3: (3, 4), 4: (3, 5), 5: (6, 5), 6: (6, 4), 7: (6, 3), 8: (6, 2)}
 pinnet = {1: "OUTSK", 2: "OUTSK", 3: "INSK+", 4: "GND", 5: "VREF", 6: "INF-", 7: "OUTF", 8: "VDD"}
 XH = {1: (3, 7), 2: (4, 7), 3: (5, 7), 4: (6, 7)}
 xhnet = {1: "BATIN", 2: "GND", 3: "INF-", 4: "BATOUT"}
 
-SMD = [  # name, wert, padA, padB, netA, netB
+SMD = [  # name, value, padA, padB, netA, netB
     ("R1", "100k", (1, 1), (1, 2), "OUTF", "X"),
     ("R2", "100k", (1, 3), (1, 4), "X", "INSK+"),
     ("C1", "100n", (2, 2), (2, 3), "OUTSK", "X"),
@@ -30,18 +30,18 @@ BRIDGES = [
     ((5, 2), (6, 2)), ((5, 2), (5, 3)), ((5, 4), (5, 5)), ((5, 5), (6, 5)),
     ((6, 3), (7, 3)), ((7, 2), (7, 3)), ((6, 4), (7, 4)), ((7, 4), (7, 5)), ((5, 6), (5, 7)),
 ]
-WIRES = [  # netz, polylinie
+WIRES = [  # net, polyline
     ("OUTF", [(7, 2), (7, 1), (2, 1)]),
     ("INF-", [(7, 5), (7, 6), (5, 6)]),
 ]
-# Kabel (Loetseite) -> Ziel
+# cables (solder side) -> destination
 CABLES = [
-    ("VDD", (6, 2), "XIAO D1", "an Pin 8"),
-    ("OUTSK", (3, 2), "XIAO A0 (D0)", "an Pin 1"),
-    ("GND", (4, 3), "XIAO GND", "an GND-Brückenkette"),
-    ("BATIN", (3, 7), "LiPo +", "an XH-Pin 1"),
-    ("GND", (4, 7), "LiPo −", "an XH-Pin 2 (GND)"),
-    ("BATOUT", (6, 7), "XIAO BAT+", "an XH-Pin 4"),
+    ("VDD", (6, 2), "XIAO D1", "to pin 8"),
+    ("OUTSK", (3, 2), "XIAO A0 (D0)", "to pin 1"),
+    ("GND", (4, 3), "XIAO GND", "to GND bridge chain"),
+    ("BATIN", (3, 7), "LiPo +", "to XH pin 1"),
+    ("GND", (4, 7), "LiPo −", "to XH pin 2 (GND)"),
+    ("BATOUT", (6, 7), "XIAO BAT+", "to XH pin 4"),
 ]
 
 TERM = {}
@@ -49,7 +49,7 @@ for k, p in U1.items(): TERM[f"U1.{k}"] = (p, pinnet[k])
 for k, p in XH.items(): TERM[f"XH.{k}"] = (p, xhnet[k])
 for n, v, a, b, na, nb in SMD:
     TERM[f"{n}.a"] = (a, na); TERM[f"{n}.b"] = (b, nb)
-for net, p, dst, how in CABLES: TERM[f"Kabel.{dst}"] = (p, net)
+for net, p, dst, how in CABLES: TERM[f"cable.{dst}"] = (p, net)
 
 def seg(a, b):
     (x1, y1), (x2, y2) = a, b
@@ -89,12 +89,12 @@ for net, pts in WIRES:
     occupied |= set(allp)
 for (t1, (p1, n1)), (t2, (p2, n2)) in itertools.combinations(TERM.items(), 2):
     if (n1 == n2) != (find(p1) == find(p2)):
-        err.append(f"{t1}({n1}) vs {t2}({n2}) verbunden={find(p1)==find(p2)}")
+        err.append(f"{t1}({n1}) vs {t2}({n2}) connected={find(p1)==find(p2)}")
 if err:
-    print("FEHLER"); [print(" ", e) for e in err]; sys.exit(1)
-print("Netzliste OK:", len(TERM), "Anschluesse")
+    print("ERROR"); [print(" ", e) for e in err]; sys.exit(1)
+print("Netlist OK:", len(TERM), "terminals")
 
-# ---------- Zeichnen ----------
+# ---------- drawing ----------
 NETC = {"GND": "#222222", "VDD": "#d62728", "OUTF": "#ff7f0e", "INF-": "#2ca02c", "VREF": "#9467bd",
         "OUTSK": "#1f77b4", "INSK+": "#11a3b5", "X": "#8c564b", "BATIN": "#c2185b", "BATOUT": "#e91e63"}
 P = 58
@@ -109,12 +109,12 @@ rootnet = {find(p): n for p, n in padnet.items()}
 def panel(ox, oy, bottom):
     X = lambda x: ox + MX + ((NX + 1 - x) if bottom else x) * P
     Y = lambda y: oy + MY + y * P
-    a(f'<text x="{ox+MX}" y="{oy+28}" class="h2">{"LÖTSEITE (unten, gespiegelt)" if bottom else "BESTÜCKUNGSSEITE (oben)"}</text>')
-    a(f'<text x="{ox+MX}" y="{oy+48}" class="sub">{"0805, Lötbrücken, 2 Drähte, Kabelanschlüsse · Spalte 1 rechts" if bottom else "nur U1 (direkt eingelötet) und XH-Stiftleiste · SMD gestrichelt = Unterseite"}</text>')
+    a(f'<text x="{ox+MX}" y="{oy+28}" class="h2">{"SOLDER SIDE (bottom, mirrored)" if bottom else "COMPONENT SIDE (top)"}</text>')
+    a(f'<text x="{ox+MX}" y="{oy+48}" class="sub">{"0805 parts, solder bridges, 2 wires, cable pads · column 1 on the right" if bottom else "only U1 (soldered directly) and XH header · dashed SMD = bottom side"}</text>')
     bx0 = min(X(1), X(NX)) - P*0.5; bx1 = max(X(1), X(NX)) + P*0.5
     a(f'<rect x="{bx0}" y="{Y(1)-P*0.5}" width="{bx1-bx0}" height="{NY*P}" rx="5" fill="{"#d9c08f" if bottom else "#e6d3a3"}" stroke="#8a7346" stroke-width="2"/>')
-    # Pfeil Richtung XIAO
-    a(f'<text x="{(bx0+bx1)/2}" y="{Y(1)-P*1.35}" class="sub" text-anchor="middle">▲ oben: Kabel zum XIAO (USB-C zeigt nach oben)</text>')
+    # arrow towards the XIAO
+    a(f'<text x="{(bx0+bx1)/2}" y="{Y(1)-P*1.35}" class="sub" text-anchor="middle">▲ top: cables to the XIAO (USB-C points up)</text>')
     for x in range(1, NX + 1):
         a(f'<text x="{X(x)}" y="{Y(1)-P*0.62}" class="ax" text-anchor="middle">{x}</text>')
     for y in range(1, NY + 1):
@@ -132,7 +132,7 @@ def panel(ox, oy, bottom):
             w, h = (P*0.79, P*0.49) if hor else (P*0.49, P*0.79)
             a(f'<rect x="{cx-w/2}" y="{cy-h/2}" width="{w}" height="{h}" fill="none" stroke="#7a6a4a" stroke-dasharray="4,3"/>')
             a(f'<text x="{cx}" y="{cy+4}" class="tiny" text-anchor="middle" fill="#7a6a4a">{n}</text>')
-        # DIP-8 Koerper (9,6 x 6,35 mm)
+        # DIP-8 body (9.6 x 6.35 mm)
         cx = (X(3)+X(6))/2; cy = (Y(2)+Y(5))/2
         w = 6.35/2.54*P; h = 9.6/2.54*P
         a(f'<rect x="{cx-w/2}" y="{cy-h/2}" width="{w}" height="{h}" rx="3" fill="#262626" stroke="#000"/>')
@@ -145,7 +145,7 @@ def panel(ox, oy, bottom):
             a(f'<rect x="{X(p[0])-P*0.22}" y="{Y(p[1])-P*0.12}" width="{P*0.44}" height="{P*0.24}" fill="#c0c0c0" stroke="#444"/>')
             left = p[0] == 3
             a(f'<text x="{X(p[0]) + (-P*0.3 if left else P*0.3)}" y="{Y(p[1])-P*0.2}" class="pin" text-anchor="{"end" if left else "start"}">{lab[k]}</text>')
-        # XH B4B-XH-A: 12,4 x 5,75 mm, ragt nach unten
+        # XH B4B-XH-A: 12.4 x 5.75 mm, sticks out at the bottom
         cx = (X(3)+X(6))/2
         w = 12.4/2.54*P; h = 5.75/2.54*P
         y0 = Y(7) - P*0.9
@@ -155,9 +155,9 @@ def panel(ox, oy, bottom):
         for k, p in XH.items():
             a(f'<rect x="{X(p[0])-P*0.13}" y="{Y(p[1])-P*0.13}" width="{P*0.26}" height="{P*0.26}" fill="#d4af37" stroke="#7a5c00"/>')
             a(f'<text x="{X(p[0])}" y="{Y(p[1])+P*0.5}" class="pin" text-anchor="middle">{k}:{names[k]}</text>')
-        a(f'<text x="{cx}" y="{y0+h+16}" class="lbl" text-anchor="middle">J1  JST-XH B4B-XH-A flach aufgelötet (Pins 90° gebogen), Öffnung nach unten</text>')
+        a(f'<text x="{cx}" y="{y0+h+16}" class="lbl" text-anchor="middle">J1  JST-XH B4B-XH-A soldered flat (pins bent 90°), opening facing down</text>')
         a(f'<path d="M {X(3)} {y0+h-6} q {(X(6)-X(3))/2} 22 {X(6)-X(3)} 0" fill="none" stroke="#c2185b" stroke-width="2.5" stroke-dasharray="5,3"/>')
-        a(f'<text x="{cx+w/2+8}" y="{y0+h-2}" class="tiny" fill="#c2185b">Brücke im FSR-Stecker = Ein</text>')
+        a(f'<text x="{cx+w/2+8}" y="{y0+h-2}" class="tiny" fill="#c2185b">bridge in FSR plug = on</text>')
     else:
         for net, pts in WIRES:
             c = NETC[net]
@@ -198,7 +198,7 @@ def panel(ox, oy, bottom):
             tx, ty = X(gx), Y(gy)
             a(f'<line x1="{cx}" y1="{cy}" x2="{tx}" y2="{ty-5}" stroke="#333" stroke-width="1"/>')
             a(f'<text x="{tx}" y="{ty}" class="smd" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">{n} {v}</text>')
-        # Kabel
+        # cables
         for net, p, dst, how in CABLES:
             c = NETC[net]
             a(f'<circle cx="{X(p[0])}" cy="{Y(p[1])}" r="{P*0.42}" fill="none" stroke="{c}" stroke-width="3" stroke-dasharray="5,3"/>')
@@ -209,33 +209,33 @@ W = 2 * PW + 20
 ly = 50 + MY + (NY + 1) * P + 95
 
 L = []
-L.append(f'<text x="40" y="{ly}" class="h2">Kabel (Lötseite, gestrichelte Kreise)</text>')
+L.append(f'<text x="40" y="{ly}" class="h2">Cables (solder side, dashed circles)</text>')
 for i, (net, p, dst, how) in enumerate(CABLES):
     yy = ly + 24 + i * 21
     L.append(f'<rect x="40" y="{yy-11}" width="26" height="9" rx="3" fill="{NETC[net]}"/>')
     L.append(f'<text x="74" y="{yy}" class="txt"><tspan font-weight="bold">{dst}</tspan> ← {how} ({nm(p)})</text>')
-L.append(f'<text x="40" y="{ly+24+6*21}" class="txt">BAT− ist am XIAO = GND: LiPo − kommt an die Platinen-GND (XH-2),</text>')
-L.append(f'<text x="40" y="{ly+24+7*21}" class="txt">der Akkustrom fließt über das GND-Kabel zum XIAO zurück.</text>')
+L.append(f'<text x="40" y="{ly+24+6*21}" class="txt">BAT− on the XIAO is GND: LiPo − goes to board GND (XH-2),</text>')
+L.append(f'<text x="40" y="{ly+24+7*21}" class="txt">the battery current returns to the XIAO through the GND wire.</text>')
 
 bx = 600
-L.append(f'<text x="{bx}" y="{ly}" class="h2">Bestückungsliste</text>')
-bom = ["U1   MCP602-I/P (DIP-8), direkt eingelötet",
-       "R1, R2  100 kΩ 0805 1 % (fg ≈23 Hz, Q≈0,73)",
+L.append(f'<text x="{bx}" y="{ly}" class="h2">Bill of materials</text>')
+bom = ["U1   MCP602-I/P (DIP-8), soldered directly",
+       "R1, R2  100 kΩ 0805 1 % (fc ≈23 Hz, Q≈0.73)",
        "R3  330 kΩ 0805      R4  10 kΩ 0805",
-       "Rf  12 kΩ 0805 (U_out ≤1,7 V ab R_FSR ≥ 0,73 kΩ)",
+       "Rf  12 kΩ 0805 (U_out ≤1.7 V for R_FSR ≥ 0.73 kΩ)",
        "C1 100 nF X7R   C2  47 nF X7R (0805)",
-       "C3  100 nF 0805 X7R (Abblock-C)",
-       "J1  JST-XH B4B-XH-A, flach aufgelötet",
-       "Lochraster 7×7 Löcher ≈ 18×18 mm",
-       "6 Litzen (AWG 28–30) zum XIAO/LiPo"]
+       "C3  100 nF 0805 X7R (decoupling)",
+       "J1  JST-XH B4B-XH-A, soldered flat",
+       "Perfboard 7×7 holes ≈ 18×18 mm",
+       "6 stranded wires (AWG 28–30) to XIAO/LiPo"]
 for i, t in enumerate(bom):
     L.append(f'<text x="{bx}" y="{ly+24+i*21}" class="mono">{t}</text>')
 
 cx = 1020
-L.append(f'<text x="{cx}" y="{ly}" class="h2">Netze</text>')
+L.append(f'<text x="{cx}" y="{ly}" class="h2">Nets</text>')
 nets = [("VDD", "Pin 8, R3, C3 ← XIAO D1"), ("GND", "Pin 4, R4, C2, C3, XH-2"),
-        ("VREF", "≈0,1 V: R3/R4 → Pin 5"), ("INF-", "Pin 6: Rf, FSR (XH-3)"),
-        ("OUTF", "Pin 7 (FSR-Stufe, ≤1,7 V) → Rf, R1"), ("X", "Sallen-Key: R1, R2, C1"),
+        ("VREF", "≈0.1 V: R3/R4 → pin 5"), ("INF-", "Pin 6: Rf, FSR (XH-3)"),
+        ("OUTF", "Pin 7 (FSR stage, ≤1.7 V) → Rf, R1"), ("X", "Sallen-Key: R1, R2, C1"),
         ("INSK+", "Pin 3: R2, C2"), ("OUTSK", "Pin 1 = Pin 2: C1 → A0"),
         ("BATIN", "XH-1 ← LiPo +"), ("BATOUT", "XH-4 → XIAO BAT+")]
 for i, (n, t) in enumerate(nets):
@@ -250,8 +250,8 @@ svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBo
        '.tiny2{font-size:11px;font-weight:bold;fill:#333}.smd{font-size:13.5px;font-weight:bold}.txt{font-size:13.5px}'
        '.mono{font-size:13.5px;font-family:Menlo,Consolas,monospace}</style>',
        f'<rect width="{W}" height="{H}" fill="#fff"/>',
-       '<text x="40" y="36" class="h1">FSR-Verstärker kompakt: 7×7 Löcher (≈18×18 mm), XIAO per Kabel</text>',
-       f'<text x="{W-40}" y="36" class="sub" text-anchor="end">Kanäle getauscht: B (Pin 5–7) = FSR-Stufe, A (Pin 1–3) = Sallen-Key ≈23 Hz → A0</text>']
+       '<text x="40" y="36" class="h1">Compact FSR amplifier: 7×7 holes (≈18×18 mm), XIAO connected by wires</text>',
+       f'<text x="{W-40}" y="36" class="sub" text-anchor="end">Channels: B (pins 5–7) = FSR stage, A (pins 1–3) = Sallen-Key ≈23 Hz → A0</text>']
 svg += out + L + ['</svg>']
 open(sys.argv[1], "w").write("\n".join(svg))
 print("SVG", W, H)
