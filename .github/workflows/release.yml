@@ -1,0 +1,117 @@
+# Firmware mit MCUboot bauen.
+#  - Tag "v1.2.3" pushen  -> GitHub-Release mit
+#      feo_sensor_v1.2.3_erstinstallation.hex  (MCUboot + Firmware, einmalig per USB flashen)
+#      feo_sensor_v1.2.3_update.bin            (signiertes Image für das Update per Bluetooth)
+#  - manuell (Actions -> Run workflow): nur bauen, Dateien als Artefakt
+#  - optional: Web-App + neueste Update-Datei auf GitHub Pages veröffentlichen,
+#    wenn die Repository-Variable DEPLOY_PAGES = true gesetzt ist (Pages-Quelle "GitHub Actions").
+#  - optional: eigener Signierschlüssel als Secret MCUBOOT_SIGNING_KEY (PEM). Ohne ihn
+#    wird der öffentlich bekannte MCUboot-Testschlüssel verwendet.
+name: Firmware
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: FEO_Sensor
+
+      - name: Version bestimmen
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "version=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: FEO_Sensor
+          toolchains: arm-zephyr-eabi
+
+      - name: Signierschlüssel
+        env:
+          KEY: ${{ secrets.MCUBOOT_SIGNING_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            printf '%s\n' "$KEY" > "$RUNNER_TEMP/mcuboot_key.pem"
+            echo "KEYFILE=$RUNNER_TEMP/mcuboot_key.pem" >> "$GITHUB_ENV"
+          fi
+
+      - name: Bauen
+        run: |
+          EXTRA=()
+          if [ -n "$KEYFILE" ]; then EXTRA+=("-DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE=\"$KEYFILE\""); fi
+          west build -p -b xiao_nrf54l15/nrf54l15/cpuapp --sysbuild FEO_Sensor/zephyr -d build -- \
+            -DEXTRA_CONF_FILE=ota.conf \
+            "-DCONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION=\"${{ steps.ver.outputs.version }}+0\"" \
+            "${EXTRA[@]}"
+
+      - name: Dateien zusammenstellen
+        run: |
+          V=${{ steps.ver.outputs.version }}
+          mkdir -p out
+          APP=$(dirname $(find build -path '*/zephyr/zephyr.signed.bin' -not -path '*/mcuboot/*' | head -1))
+          cp "$APP/zephyr.signed.bin" "out/feo_sensor_v${V}_update.bin"
+          pip install -q intelhex
+          python3 - "$V" "$APP" <<'PY'
+          import sys
+          from intelhex import IntelHex
+          v, app = sys.argv[1], sys.argv[2]
+          h = IntelHex("build/mcuboot/zephyr/zephyr.hex")
+          h.merge(IntelHex(f"{app}/zephyr.signed.hex"), overlap="error")
+          h.write_hex_file(f"out/feo_sensor_v{v}_erstinstallation.hex")
+          PY
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feo_sensor_v${{ steps.ver.outputs.version }}
+          path: out/*
+
+      - name: Release anlegen
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/* -R "$GITHUB_REPOSITORY" --generate-notes \
+            --title "FEO-Sensor $GITHUB_REF_NAME"
+
+      - name: Web-App mit Firmware für Pages vorbereiten
+        if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
+        run: |
+          V=${{ steps.ver.outputs.version }}
+          cp -r FEO_Sensor/docs site
+          mkdir -p site/fw
+          cp "out/feo_sensor_v${V}_update.bin" site/fw/
+          printf '{"version":"%s","file":"feo_sensor_v%s_update.bin","date":"%s"}\n' "$V" "$V" "$(date -u +%FT%TZ)" > site/fw/latest.json
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
+        with:
+          path: site
+
+  pages:
+    needs: build
+    if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

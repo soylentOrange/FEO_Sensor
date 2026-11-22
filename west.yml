@@ -1,0 +1,21 @@
+# West-Manifest für den Build mit MCUboot (Sysbuild), z. B. in der GitHub Action.
+# Lokal:  west init -l FEO_Sensor && west update   (im Ordner über dem Repo)
+manifest:
+  self:
+    path: FEO_Sensor
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: v4.4.2
+      import:
+        name-allowlist:
+          - cmsis
+          - cmsis_6
+          - hal_nordic
+          - mcuboot
+          - zcbor
+          - mbedtls
+          - tf-psa-crypto
