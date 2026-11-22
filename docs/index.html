@@ -470,8 +470,11 @@ function download(text, name) {
 // ---------- Firmware-Update über Bluetooth (MCUmgr / SMP, MCUboot) ----------
 const SMP_SVC = "8d53dc1d-1db7-4cd3-868b-8a527460aa84";
 const SMP_CHR = "da2e7828-fbce-4e01-ae9e-261174997c48";
-const SMP_FRAG = 180;     // Bytes pro BLE-Schreibvorgang (Firmware setzt SMP-Pakete wieder zusammen)
-const SMP_DATA = 384;     // Image-Bytes pro SMP-Paket (Puffer in der Firmware: 512)
+// Web Bluetooth verrät die ausgehandelte MTU nicht, und mehrere schnell hintereinander gesendete
+// Writes ohne Antwort gehen (z. B. unter macOS) verloren. Deshalb: vor dem Upload per Echo prüfen,
+// ob ein 180-Byte-Write ankommt; dann passt jedes SMP-Paket in genau einen Write. Sonst 20-Byte-
+// Stücke mit Pause dazwischen (die Firmware setzt die Pakete wieder zusammen).
+let smpFrag = 20, smpPace = 0, smpData = 128;
 let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwInstalled = null, fwLatestInfo = null;
 
 // --- minimales CBOR (nur was SMP braucht) ---
@@ -519,7 +522,7 @@ function cborDec(buf) {
 }
 
 // --- SMP-Rahmen: op, flags, len (BE), group (BE), seq, id + CBOR ---
-async function smpCall(op, group, id, body, timeout = 5000) {
+async function smpCall(op, group, id, body, timeout = 5000, frag = 0) {
   const payload = cborEnc(body), seq = smpSeq = (smpSeq + 1) & 255;
   const pkt = new Uint8Array(8 + payload.length);
   pkt.set([op, 0, payload.length >> 8, payload.length & 255, group >> 8, group & 255, seq, id]);
@@ -527,7 +530,12 @@ async function smpCall(op, group, id, body, timeout = 5000) {
   const resp = new Promise((resolve, reject) => {
     smpWait = { seq, resolve, reject, timer: setTimeout(() => { smpWait = null; reject(new Error("Timeout")); }, timeout) };
   });
-  for (let o = 0; o < pkt.length; o += SMP_FRAG) await smpChr.writeValueWithoutResponse(pkt.slice(o, o + SMP_FRAG));
+  const fs = frag || smpFrag;
+  smpRx = null;
+  for (let o = 0; o < pkt.length; o += fs) {
+    if (o && smpPace) await new Promise(r => setTimeout(r, smpPace));
+    await smpChr.writeValueWithoutResponse(pkt.slice(o, o + fs));
+  }
   const r = await resp;
   if (r.rc) throw new Error("SMP rc " + r.rc);
   if (r.err && r.err.rc) throw new Error("SMP err " + r.err.group + "/" + r.err.rc);
@@ -592,13 +600,23 @@ async function fwInstall(buf) {
   if (cur !== img.version && !confirm(T("fwAsk", img.version, cur))) return;
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
-  const t0 = performance.now();
   try {
-    let off = 0;
+    // größte Schreib-Größe finden, die vollständig ankommt (Echo mit passend langem Text)
+    try {
+      await smpCall(2, 0, 0, { d: "x".repeat(180 - 14) }, 3000, 180);   // genau 179 Byte, ein Write
+      smpFrag = 180; smpPace = 0; smpData = 128;                         // Upload-Paket ≤ 170 Byte
+    } catch (e) {
+      smpFrag = 20; smpPace = 8; smpData = 128;
+    }
+    log(`# Update: ${smpFrag} Byte pro Schreibvorgang`);
+    const t0 = performance.now();
+    let off = 0, tries = 0;
     while (off < buf.length) {
-      const body = { image: 0, off, data: buf.slice(off, off + SMP_DATA) };
+      const body = { image: 0, off, data: buf.slice(off, off + smpData) };
       if (off === 0) body.len = buf.length;
-      const r = await smpCall(2, 1, 1, body, 15000);   // erster Block löscht Slot 1, dauert länger
+      let r;
+      try { r = await smpCall(2, 1, 1, body, off === 0 ? 30000 : 5000); tries = 0; }   // erster Block: Slot löschen
+      catch (e) { if (e.message !== "Timeout" || ++tries > 3) throw e; continue; }    // Block wiederholen
       off = typeof r.off === "number" ? r.off : off + body.data.length;
       prog.value = off / buf.length;
       const kbs = (off / 1024 / ((performance.now() - t0) / 1000)).toFixed(1);
