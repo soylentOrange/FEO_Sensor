@@ -27,12 +27,15 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 3. [Firmware](#firmware)
    - [Step Detection and Force per Gait Phase](#step-detection-and-force-per-gait-phase)
    - [Power Saving](#power-saving)
+   - [Long-term Measurement](#long-term-measurement)
+   - [Switchable Outputs](#switchable-outputs)
    - [Building and Flashing](#building-and-flashing)
    - [Data Formats](#data-formats)
 4. [Web App](#web-app)
    - [Features](#features)
    - [Force Calibration](#force-calibration)
    - [Sensor Alignment](#sensor-alignment)
+   - [Long-term Measurement Tab](#long-term-measurement-tab)
    - [Browser Support](#browser-support)
    - [Install on Android](#install-on-android)
 5. [Repository Layout](#repository-layout)
@@ -136,6 +139,26 @@ The rotation axis comes from the [sensor alignment](#sensor-alignment). Without 
 - **Advertising** runs at 100–150 ms for 30 s after power-on or disconnect, then at about 1 s.
 - **LED:** off at rest; a short dim flash at 2 Hz while movement is detected; a longer, brighter flash at every initial contact.
 - The console UART only transmits (`disable-rx`).
+- While a long-term measurement runs, the rest mode switches the amplifier on for 50 ms every 5 s to sample the heel load (standing with load).
+
+### Long-term Measurement
+
+The firmware logs a measurement in flash, without the app, for everyday use (e.g. 24 h unsupervised):
+
+- **Every stride** (16 bytes): time of initial contact, stride and stance time, heel peak, stance mean and impulse, flags.
+- **Every minute** (16 bytes): strides, strides above the threshold, seconds with movement, seconds with heel load above the threshold while not moving, maximum heel load while not moving, battery.
+- **Events:** start, stop, power-up (with reset cause), time set, rest/wake, power-on zero point, markers from the app, battery low, log full.
+
+Storage is the secondary image slot (`slot1_partition`, 712 KB, of which 704 KB are used = 45,056 entries). A typical day of 10,000 steps (5,000 strides) plus 1,440 minute entries takes about 105 KB, so the memory lasts **about 6–7 days**. Battery use for a 24 h day is estimated at 7–8 mAh (about 2 h active at ~3 mA, the rest in rest mode).
+
+- The app sets the **clock** every time it connects and again at start. The nRF counts on from there. All entries carry the uptime in ms; after a reset during a measurement the log keeps running without clock time, and the app maps the uptime to the clock again from the next time it connects.
+- A measurement **survives resets** and continues after power-up.
+- A **firmware update over Bluetooth overwrites the log**: the firmware stops logging as soon as an upload starts, and the app warns if entries have not been read out. Logging only starts once the running image is confirmed; the MCUboot trailer at the end of the slot is never touched.
+- Format: see [`src/datalog.h`](src/datalog.h).
+
+### Switchable Outputs
+
+Raw data (BLE), stride records (BLE), serial CSV and serial `#S` lines can be switched off individually (stored in flash). Serial CSV costs power during a long-term measurement, so switch it off for everyday use. Battery and the status/activity notification are always on while connected.
 
 ### Building and Flashing
 
@@ -186,6 +209,8 @@ t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
 
 - Characteristic `7a1e0015-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): sensor alignment, stored in flash. float32 R[3][3] (rows: x forward, y right = sagittal axis, z down, each in sensor coordinates), uint32 time (Unix s; 0 = none, the firmware then estimates the axis itself). Reading returns 28 more bytes: float32 axis[3] currently used, float32 gyro offset[3] (°/s), uint32 number of strides since power-on.
 - Characteristic `7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify, write): one 102-byte record per stride (see below). The last 1024 records stay in RAM; writing a uint32 `seq` sends all records from that number again.
+- Characteristic `7a1e0017-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write, notify about once per second): control and status. Status (44 bytes): uint8 version, uint8 flags (1 running, 2 log valid, 4 erasing, 8 clock set, 16 locked, 32 full), uint16 output mask, uint32 entries, uint32 capacity, uint32 device time (Unix s), uint16 threshold (0.01 kg), uint8 side, uint8 erase progress (%), char[8] pseudonym, uint32 index of the session header, uint32 uptime (ms), uint32 strides since power-up, uint8 activity (0 rest mode, 1 still, 2 moving), uint8 0, uint16 seconds still. Commands (byte 0): 1 set time (uint32 Unix s), 2 start (uint16 threshold, uint8 side, uint8 options bit 0 = erase first, char[8] pseudonym), 3 stop, 4 erase, 5 read out (uint32 from index, 0xFFFFFFFF = abort), 6 marker (uint16 number), 7 outputs (uint16 mask: 1 raw BLE, 2 strides BLE, 4 serial CSV, 8 serial strides).
+- Characteristic `7a1e0018-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify): log readout, uint32 index + up to 15 entries of 16 bytes; a packet without entries marks the end.
 
 The UUIDs differ from XIAO_IMU_Live, so the two apps do not pick up each other's boards.
 
@@ -208,7 +233,10 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 ### Features
 
 - Connect via **Bluetooth LE** or **USB serial**
-- Five tabs: **IMU** (plots and 3D view), **Calibration** (force sensor, kg display, calibration points, coefficients), **Alignment** (sensor axes on the shank), **Steps** (strides and force per gait phase) and **Firmware update**. Connection, recording, battery badge and log stay visible on every tab; the last tab is remembered and can be linked directly (`#imu`, `#cal`, `#align`, `#gait`, `#fw`)
+- Six tabs: **IMU** (plots and 3D view), **Calibration** (force sensor, kg display, calibration points, coefficients), **Alignment** (sensor axes on the shank), **Steps** (strides and force per gait phase), **Long-term** (measurement in the device) and **Firmware update**. Connection, recording, battery and activity badges, output switches and log stay visible on every tab; the last tab is remembered and can be linked directly (`#imu`, `#cal`, `#align`, `#gait`, `#log`, `#fw`)
+- **Long-term:** start/stop with pseudonym, side and threshold, markers, readout, analysis and CSV export (see [below](#long-term-measurement-tab))
+- **Outputs:** switch raw data, stride records and the serial outputs on and off
+- **Video in sync** (Steps tab): records a video with the phone or laptop camera together with the data recording. Device time is mapped to browser time from the incoming samples (minimum delay over a 20 s window), so the data CSV gets a `video_ms` column and a separate CSV lists the strides with their time in the video (`video_s`). The sensor LED flashes at every initial contact, which can be used to check the sync in the video. Needs Chrome on Android or desktop (Web Bluetooth + MediaRecorder); not available on the iPhone
 - **Steps:** cadence, stride and stance time, heel force; bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s
 - **3D orientation** view (Madgwick filter, accelerometer + gyroscope) with a model of the board, drag with mouse or finger to rotate the camera, "Zero" to reset orientation and gyro offset
@@ -259,6 +287,16 @@ Step detection needs the shank's angular rate about the medio-lateral axis. Beca
 3. **Direction:** when walking, the sign follows from the gait pattern (swing peaks are larger than the negative peaks at toe-off and initial contact). For the pendulum, or to make sure, press *Check direction* and lift the foot forward within 3 s. *Reverse direction* flips it by hand.
 
 The live plot of the sagittal angular rate shows whether the result is right (large positive swing peaks). **Write to device** stores it in flash; **Delete calibration** returns to the automatic axis.
+
+### Long-term Measurement Tab
+
+1. Connect via Bluetooth. The app sets the device clock.
+2. Enter a **pseudonym** (1–8 characters, no names), the **side** and the **threshold** (default 2 kg), then **Start measurement**. The device logs on its own until **Stop measurement**, even without the app.
+3. **Read new data** loads only the entries added since the last readout (about 4 s per 13,000 entries). The data stays in the browser; **Save raw data (.bin)** keeps everything and can be opened again later without the device.
+4. **Analysis** per measurement: duration, strides, share of strides with heel peak above an adjustable threshold (primary endpoint), mean heel peak, minutes with movement, time standing with load; strides per hour as a chart and table; events.
+5. **CSV** export of strides, minutes, hours and events (local time and Unix ms).
+
+Read out before a firmware update: the update erases the log.
 
 ### Browser Support
 

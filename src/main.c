@@ -63,6 +63,12 @@
  *   #S,seq,t_ic_ms,stride_ms,stance_ms,ms_dps,ic_dps,to_dps,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags,
  *     f_0..f_19 (kg je 5 % des Gangzyklus), 8 x Mittel und 8 x Maximum je Gangphase (kg)
  *
+ * Characteristic FEO_CTRL_UUID (read, write, notify about once per second): status of
+ *   the long-term log plus activity, and control commands (see src/datalog.h, README).
+ *   Command 7 sets the output mask OUT_* (raw data, stride records, serial CSV, serial #S),
+ *   stored in flash. Battery and this status are always on while connected.
+ * Characteristic FEO_LOG_UUID (notify): long-term log readout, uint32 index + n x 16 bytes.
+ *
  * Energiesparen: Ist das Bein REST_AFTER_S lang ruhig und streamt keine App die
  * Rohdaten, geht der Sensor in den Ruhemodus: Gyro aus, Beschleunigungssensor im
  * Low-Power-Modus (26 Hz, ±2 g) mit Aufwach-Interrupt (INT1 an P0.02), MCP602 aus,
@@ -86,6 +92,7 @@
 #include <zephyr/drivers/i2c.h>
 #include <math.h>
 #include "gait.h"
+#include "datalog.h"
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/settings/settings.h>
 #include <string.h>
@@ -96,6 +103,10 @@
 #include <zephyr/bluetooth/uuid.h>
 #ifdef CONFIG_MCUBOOT_IMG_MANAGER
 #include <zephyr/dfu/mcuboot.h>
+#endif
+#ifdef CONFIG_MCUMGR_GRP_IMG_STATUS_HOOKS
+#include <zephyr/mgmt/mcumgr/mgmt/callbacks.h>
+#include <zephyr/mgmt/mcumgr/grp/img_mgmt/img_mgmt_callbacks.h>
 #endif
 
 #define SAMPLE_RATE_HZ   100   /* Ausgaberate */
@@ -109,6 +120,7 @@
 
 #define REST_AFTER_S     20    /* so lange ruhig -> Ruhemodus */
 #define REST_BAT_S       60    /* Akku im Ruhemodus messen */
+#define REST_FSR_S       5     /* rest mode while logging: sample heel load every 5 s */
 #define STEP_LOG         1024  /* Schritt-Datensätze im RAM */
 #define STEP_LEN         (30 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
 #define ADV_FAST_S       30    /* nach Start/Trennen so lange schnell werben */
@@ -150,6 +162,26 @@ static const struct bt_uuid_128 feo_cal_uuid = BT_UUID_INIT_128(FEO_CAL_UUID_VAL
 	BT_UUID_128_ENCODE(0x7a1e0016, 0x5c3b, 0x4f0a, 0x9d2e, 0x3c8f1b6a4d01)
 static const struct bt_uuid_128 feo_frame_uuid = BT_UUID_INIT_128(FEO_FRAME_UUID_VAL);
 static const struct bt_uuid_128 feo_step_uuid = BT_UUID_INIT_128(FEO_STEP_UUID_VAL);
+#define FEO_CTRL_UUID_VAL \
+	BT_UUID_128_ENCODE(0x7a1e0017, 0x5c3b, 0x4f0a, 0x9d2e, 0x3c8f1b6a4d01)
+#define FEO_LOG_UUID_VAL \
+	BT_UUID_128_ENCODE(0x7a1e0018, 0x5c3b, 0x4f0a, 0x9d2e, 0x3c8f1b6a4d01)
+static const struct bt_uuid_128 feo_ctrl_uuid = BT_UUID_INIT_128(FEO_CTRL_UUID_VAL);
+static const struct bt_uuid_128 feo_log_uuid = BT_UUID_INIT_128(FEO_LOG_UUID_VAL);
+
+/* Switchable outputs (bit mask, stored in flash). Battery and the status/activity
+ * notification on FEO_CTRL_UUID are always on while connected. */
+#define OUT_BLE_RAW      BIT(0)   /* raw data on FEO_DATA_UUID */
+#define OUT_BLE_STEP     BIT(1)   /* stride records on FEO_STEP_UUID */
+#define OUT_SER_CSV      BIT(2)   /* serial CSV lines */
+#define OUT_SER_STEP     BIT(3)   /* serial #S lines */
+#define OUT_ALL          0x000f
+#define CTRL_OUTPUTS     7        /* control command: uint16 output mask */
+#define CTRL_STATUS_LEN  (DL_STATUS_LEN + 8)
+static atomic_t outputs = ATOMIC_INIT(OUT_ALL);
+static atomic_t stride_total;     /* strides since power-up */
+static atomic_t activity;         /* 0 rest mode, 1 still, 2 moving */
+static atomic_t still_secs;
 
 /* ---------------- Kalibrierung (im Flash) ---------------- */
 
@@ -247,6 +279,14 @@ static int cal_settings_set(const char *name, size_t len, settings_read_cb read_
 	if (!strcmp(name, "frame")) {
 		return frame_settings_set(len, read_cb, cb_arg);
 	}
+	if (!strcmp(name, "outputs")) {
+		uint8_t m[2];
+
+		if (len == 2 && read_cb(cb_arg, m, 2) == 2) {
+			atomic_set(&outputs, sys_get_le16(m) & OUT_ALL);
+		}
+		return 0;
+	}
 	if (strcmp(name, "cal") || len != CAL_LEN || read_cb(cb_arg, b, CAL_LEN) != CAL_LEN) {
 		return 0;
 	}
@@ -274,6 +314,8 @@ static uint32_t gait_axis_bias_count[7];         /* Achse, Offset (float-Bits), 
 static atomic_t bat_notify_on;
 static uint16_t bat_mv;           /* letzte Akkuspannung (mV), 0 = noch keine Messung */
 static atomic_t need_adv = ATOMIC_INIT(1);
+static atomic_t ctrl_notify_on;
+static atomic_t log_notify_on;
 
 static void ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
@@ -379,10 +421,67 @@ static ssize_t cal_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 	return err ? BT_GATT_ERR(BT_ATT_ERR_UNLIKELY) : len;
 }
 
+static void ctrl_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+	atomic_set(&ctrl_notify_on, value == BT_GATT_CCC_NOTIFY);
+}
+
+static void log_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+	atomic_set(&log_notify_on, value == BT_GATT_CCC_NOTIFY);
+}
+
+/* Status: dl_status() (output mask at offset 2) + uint32 strides since power-up,
+ * uint8 activity (0 rest mode, 1 still, 2 moving), uint8 0, uint16 seconds still */
+static void ctrl_status(uint8_t b[CTRL_STATUS_LEN])
+{
+	dl_status(b);
+	sys_put_le16((uint16_t)atomic_get(&outputs), b + 2);
+	sys_put_le32((uint32_t)atomic_get(&stride_total), b + DL_STATUS_LEN);
+	b[DL_STATUS_LEN + 4] = (uint8_t)atomic_get(&activity);
+	b[DL_STATUS_LEN + 5] = 0;
+	sys_put_le16((uint16_t)MIN(atomic_get(&still_secs), UINT16_MAX), b + DL_STATUS_LEN + 6);
+}
+
+static ssize_t ctrl_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			 void *buf, uint16_t len, uint16_t offset)
+{
+	uint8_t b[CTRL_STATUS_LEN];
+
+	ctrl_status(b);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, b, sizeof(b));
+}
+
+static ssize_t ctrl_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			  const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+	const uint8_t *b = buf;
+
+	if (offset != 0 || len < 1) {
+		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+	}
+	if (b[0] == CTRL_OUTPUTS) {
+		if (len != 3) {
+			return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+		}
+		uint8_t m[2];
+
+		sys_put_le16(sys_get_le16(b + 1) & OUT_ALL, m);
+		atomic_set(&outputs, sys_get_le16(m));
+		settings_save_one("feo/outputs", m, 2);
+	} else if (dl_command(b, len)) {
+		return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+	}
+	k_sem_give(&wake_sem);
+	return len;
+}
+
 /* Attribute: [0] Service, [1] Daten-Decl, [2] Daten-Wert, [3] CCC,
  *            [4] Akku-Decl, [5] Akku-Wert, [6] CCC, [7] Kal-Decl, [8] Kal-Wert,
  *            [9] Ausrichtung-Decl, [10] Ausrichtung-Wert,
- *            [11] Schritt-Decl, [12] Schritt-Wert, [13] CCC */
+ *            [11] Schritt-Decl, [12] Schritt-Wert, [13] CCC,
+ *            [14] control decl, [15] control value, [16] CCC,
+ *            [17] log decl, [18] log value, [19] CCC */
 BT_GATT_SERVICE_DEFINE(feo_svc,
 	BT_GATT_PRIMARY_SERVICE(&feo_svc_uuid),
 	BT_GATT_CHARACTERISTIC(&feo_data_uuid.uuid, BT_GATT_CHRC_NOTIFY,
@@ -398,6 +497,13 @@ BT_GATT_SERVICE_DEFINE(feo_svc,
 	BT_GATT_CHARACTERISTIC(&feo_step_uuid.uuid, BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
 			       BT_GATT_PERM_WRITE, NULL, step_write, NULL),
 	BT_GATT_CCC(step_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(&feo_ctrl_uuid.uuid,
+			       BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE | BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE, ctrl_read, ctrl_write, NULL),
+	BT_GATT_CCC(ctrl_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(&feo_log_uuid.uuid, BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_NONE, NULL, NULL, NULL),
+	BT_GATT_CCC(log_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 static const struct bt_data ad[] = {
@@ -427,6 +533,11 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	atomic_set(&bat_notify_on, 0);
 	atomic_set(&step_notify_on, 0);
 	atomic_set(&step_resend, -1);
+	atomic_set(&ctrl_notify_on, 0);
+	atomic_set(&log_notify_on, 0);
+	const uint8_t abort_rd[5] = { DL_C_READ, 0xff, 0xff, 0xff, 0xff };
+
+	dl_command(abort_rd, sizeof(abort_rd));
 	if (cur_conn) {
 		bt_conn_unref(cur_conn);
 		cur_conn = NULL;
@@ -484,7 +595,7 @@ static uint8_t pkt_n;
 
 static void ble_push(uint32_t t_ms, const int16_t v[6], uint16_t fsr_word)
 {
-	if (!cur_conn || !atomic_get(&notify_on)) {
+	if (!cur_conn || !atomic_get(&notify_on) || !(atomic_get(&outputs) & OUT_BLE_RAW)) {
 		pkt_n = 0;
 		return;
 	}
@@ -559,6 +670,9 @@ static void step_store(const struct gait_stride *s)
 
 static void step_print(const struct gait_stride *s)
 {
+	if (!(atomic_get(&outputs) & OUT_SER_STEP)) {
+		return;
+	}
 	char line[100 + 7 * (GAIT_BINS + 2 * GAIT_PHASES)];
 	int n = snprintk(line, sizeof(line), "#S,%u,%u,%u,%u,%.1f,%.1f,%.1f,%.2f,%.2f,%.2f,%u,%.2f,%u",
 			 s->seq, s->t_ic_ms, s->stride_ms, s->stance_ms, (double)s->ms_dps,
@@ -584,7 +698,7 @@ static bool step_notify(uint32_t seq)
 /* neue oder angeforderte ältere Datensätze verschicken (ein paar pro Durchlauf) */
 static void step_send_pending(void)
 {
-	if (!cur_conn || !atomic_get(&step_notify_on)) {
+	if (!cur_conn || !atomic_get(&step_notify_on) || !(atomic_get(&outputs) & OUT_BLE_STEP)) {
 		return;
 	}
 	atomic_val_t from = atomic_get(&step_resend);
@@ -611,6 +725,49 @@ static void ble_push_bat(void)
 
 	sys_put_le16(bat_mv, v);
 	bt_gatt_notify(cur_conn, &feo_svc.attrs[5], v, sizeof(v));
+}
+
+/* status/activity notification (about once per second, always on while connected) */
+static void ble_push_status(void)
+{
+	if (!cur_conn || !atomic_get(&ctrl_notify_on)) {
+		return;
+	}
+	uint8_t b[CTRL_STATUS_LEN];
+
+	ctrl_status(b);
+	bt_gatt_notify(cur_conn, &feo_svc.attrs[15], b, sizeof(b));
+}
+
+/* log readout: a few packets per call, as many as the buffers take */
+static void log_send_pending(void)
+{
+	static uint8_t b[4 + 15 * DL_ENTRY];
+
+	for (int i = 0; i < 8; i++) {
+		if (!cur_conn || !atomic_get(&log_notify_on)) {
+			return;
+		}
+		size_t room = MIN(sizeof(b), (size_t)bt_gatt_get_mtu(cur_conn) - 3);
+		size_t n = dl_read_fill(b, room);
+
+		if (n == 0 || bt_gatt_notify(cur_conn, &feo_svc.attrs[18], b, n)) {
+			return;
+		}
+		dl_read_done();
+		if (n == 4) {
+			return;             /* end marker sent */
+		}
+	}
+}
+
+/* main-loop housekeeping for the log; returns true if it needs to run again soon */
+static bool log_service(void)
+{
+	bool busy = dl_poll();
+
+	log_send_pending();
+	return busy;
 }
 
 /* ---------------- ADC: Kraftsensor und Akku ---------------- */
@@ -749,6 +906,11 @@ static uint8_t ser_n;
 static void serial_push(uint32_t t, const double a[3], const double g[3],
 			int32_t fsr_mv, uint16_t range_mv)
 {
+	if (!(atomic_get(&outputs) & OUT_SER_CSV)) {
+		ser_len = 0;
+		ser_n = 0;
+		return;
+	}
 	int len = snprintk(&ser_buf[ser_len], sizeof(ser_buf) - ser_len,
 			   "%u,%.3f,%.3f,%.3f,%.1f,%.1f,%.1f,%d,%u,%u\n", t,
 			   a[0], a[1], a[2], g[0], g[1], g[2],
@@ -898,10 +1060,30 @@ static void bat_once(void)
 	ble_push_bat();
 }
 
+static bool raw_requested(void)
+{
+	return atomic_get(&notify_on) && (atomic_get(&outputs) & OUT_BLE_RAW);
+}
+
+/* rest mode while logging: switch the amplifier on briefly and sample the heel load */
+static void rest_fsr_sample(void)
+{
+	int32_t mv;
+
+	gpio_pin_set_dt(&fsr_pwr, 1);
+	k_msleep(50);                              /* amplifier and low-pass settle */
+	fsr_measure(&mv);
+	gpio_pin_set_dt(&fsr_pwr, 0);
+	dl_rest_sample(adc_ok ? fsr_kg(mv) : 0, REST_FSR_S, bat_mv);
+}
+
 /* Schlafen, bis sich das Bein bewegt oder die App Rohdaten anfordert */
 static void rest(void)
 {
 	printk("# Ruhemodus (%d s ohne Bewegung)\n", REST_AFTER_S);
+	dl_event(DL_E_REST, 0, 0);
+	atomic_set(&activity, 0);
+	ble_push_status();
 	led_set(false);
 	gait_pause();
 	pkt_n = 0;
@@ -910,17 +1092,34 @@ static void rest(void)
 		printk("# Fehler: IMU-Ruhemodus\n");
 	}
 	int64_t bat_next = k_uptime_get() + REST_BAT_S * 1000;
+	int64_t fsr_next = k_uptime_get() + REST_FSR_S * 1000;
 
-	while (!atomic_get(&imu_woke) && !atomic_get(&notify_on)) {
+	while (!atomic_get(&imu_woke) && !raw_requested()) {
 		adv_start_if_needed();
 		step_send_pending();
+		bool busy = log_service();
 		int64_t now = k_uptime_get();
 
 		if (now >= bat_next) {
 			bat_once();
 			bat_next = now + REST_BAT_S * 1000;
+			ble_push_status();
+		}
+		if (now >= fsr_next) {
+			if (dl_running()) {
+				rest_fsr_sample();
+				ble_push_status();
+			}
+			fsr_next = now + REST_FSR_S * 1000;
 		}
 		int64_t until = bat_next;
+
+		if (dl_running()) {
+			until = MIN(until, MIN(fsr_next, dl_minute_end()));
+		}
+		if (busy) {
+			until = now + 10;                   /* erasing or reading out the log */
+		}
 
 		if (adv_fast_until && adv_fast_until + 10 < until) {
 			until = adv_fast_until + 10;
@@ -933,8 +1132,27 @@ static void rest(void)
 	imu_wake();
 	gpio_pin_set_dt(&fsr_pwr, 1);              /* MCP602 an, ... */
 	k_msleep(50);                              /* ... Verstärker und Tiefpass einschwingen */
-	printk("# aktiv (%s)\n", atomic_get(&notify_on) ? "Streaming" : "Bewegung");
+	printk("# aktiv (%s)\n", raw_requested() ? "Streaming" : "Bewegung");
+	dl_event(DL_E_WAKE, 0, 0);
+	atomic_set(&activity, 2);
+	atomic_set(&still_secs, 0);
 }
+
+#ifdef CONFIG_MCUMGR_GRP_IMG_STATUS_HOOKS
+/* a firmware upload overwrites slot 1: stop logging before the first write */
+static enum mgmt_cb_return dfu_cb(uint32_t event, enum mgmt_cb_return prev_status, int32_t *rc,
+				  uint16_t *group, bool *abort_more, void *data, size_t data_size)
+{
+	dl_dfu_started();
+	k_sem_give(&wake_sem);
+	return MGMT_CB_OK;
+}
+
+static struct mgmt_callback dfu_mgmt_cb = {
+	.callback = dfu_cb,
+	.event_id = MGMT_EVT_OP_IMG_MGMT_DFU_STARTED,
+};
+#endif
 
 int main(void)
 {
@@ -965,6 +1183,13 @@ int main(void)
 	} else {
 		printk("# Fehler: Settings (Kalibrierung) nicht verfügbar\n");
 	}
+#ifdef CONFIG_MCUBOOT_IMG_MANAGER
+	dl_allow(false);              /* no logging into slot 1 before the image is confirmed */
+#endif
+	dl_init();
+#ifdef CONFIG_MCUMGR_GRP_IMG_STATUS_HOOKS
+	mgmt_callback_register(&dfu_mgmt_cb);
+#endif
 
 	int err = bt_enable(NULL);
 
@@ -980,6 +1205,7 @@ int main(void)
 
 		printk("# Update: neue Firmware %s\n", cerr ? "NICHT bestätigt" : "bestätigt");
 	}
+	dl_allow(boot_is_img_confirmed());
 	printk("# Firmware %s (MCUboot, Update per Bluetooth möglich)\n",
 	       CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION);
 #endif
@@ -993,10 +1219,16 @@ int main(void)
 	uint32_t still_s = 0;         /* Sekunden ohne Bewegung */
 	bool moving = true;           /* Bewegung in der letzten Sekunde */
 	float blk_max = 0;            /* größte Abweichung in der laufenden Sekunde */
+	float sec_kg = 0;             /* max heel load in the current second */
+
+	if (dl_running() && (atomic_get(&outputs) & OUT_SER_CSV)) {
+		printk("# Hinweis: Dauermessung läuft, serielle CSV-Ausgabe kostet Strom\n");
+	}
 
 	while (1) {
 		adv_start_if_needed();
 		step_send_pending();
+		log_service();
 
 		/* neue Ausrichtung aus dem Flash oder von der App übernehmen */
 		if (atomic_cas(&frame_dirty, 1, 0)) {
@@ -1029,7 +1261,10 @@ int main(void)
 		} else if (n == ZERO_START + ZERO_LEN && adc_ok) {
 			float z = (float)zero_sum / ZERO_LEN;
 
-			if (z >= ZERO_MIN_MV && z <= ZERO_MAX_MV) {
+			bool ok = z >= ZERO_MIN_MV && z <= ZERO_MAX_MV;
+
+			dl_event(DL_E_ZERO, ok ? (uint16_t)lroundf(z * 10.0f) : 0, 0);
+			if (ok) {
 				vref_zero = z;
 				printk("# Nullpunkt beim Start: VREF_0 = %.1f mV\n", (double)z);
 			} else {
@@ -1063,10 +1298,17 @@ int main(void)
 
 			blk_max = fmaxf(blk_max, fmaxf(ga / 20.0f, aa / 0.1f));
 
-			if (gait_update(t, gf, af, adc_ok ? fsr_kg(fsr_mv) : 0, &st)) {
+			float kg = adc_ok ? fsr_kg(fsr_mv) : 0;
+
+			sec_kg = fmaxf(sec_kg, kg);
+			if (gait_update(t, gf, af, kg, &st)) {
 				step_store(&st);
 				step_print(&st);
-				if (cur_conn && atomic_get(&step_notify_on) && atomic_get(&step_resend) < 0) {
+				dl_stride((uint8_t)st.flags, st.stride_ms, st.t_ic_ms, st.stance_ms,
+					  st.f_peak_kg, st.f_mean_kg, st.f_imp_kgs);
+				atomic_inc(&stride_total);
+				if (cur_conn && atomic_get(&step_notify_on) && atomic_get(&step_resend) < 0 &&
+				    (atomic_get(&outputs) & OUT_BLE_STEP)) {
 					step_notify(st.seq);
 				}
 				led_set(true);              /* Fersenauftritt: langer, heller Blitz */
@@ -1081,6 +1323,11 @@ int main(void)
 			moving = blk_max > 1.0f;
 			blk_max = 0;
 			still_s = moving ? 0 : still_s + 1;
+			dl_second(moving, sec_kg, bat_mv);
+			sec_kg = 0;
+			atomic_set(&activity, moving ? 2 : 1);
+			atomic_set(&still_secs, still_s);
+			ble_push_status();
 			float ax[3], bias[3];
 			uint32_t cnt;
 
@@ -1106,7 +1353,7 @@ int main(void)
 			led_off = now + 2;
 		}
 
-		if (rest_ok && still_s >= REST_AFTER_S && !atomic_get(&notify_on)) {
+		if (rest_ok && still_s >= REST_AFTER_S && !raw_requested()) {
 			rest();
 			still_s = 0;
 			moving = true;
