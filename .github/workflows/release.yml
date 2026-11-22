@@ -1,9 +1,9 @@
 # Firmware mit MCUboot bauen.
 #  - Tag "v1.2.3" pushen  -> GitHub-Release mit
-#      feo_sensor_v1.2.3_erstinstallation.hex  (MCUboot + Firmware, einmalig per USB flashen)
+#      feo_sensor_v1.2.3_factory.hex  (MCUboot + Firmware, einmalig per USB flashen)
 #      feo_sensor_v1.2.3_update.bin            (signiertes Image für das Update per Bluetooth)
 #  - manuell (Actions -> Run workflow): nur bauen, Dateien als Artefakt
-#  - optional: Web-App + neueste Update-Datei auf GitHub Pages veröffentlichen,
+#  - danach Web-App + neueste Update-Datei auf GitHub Pages (pages.yml),
 #    wenn die Repository-Variable DEPLOY_PAGES = true gesetzt ist (Pages-Quelle "GitHub Actions").
 #  - optional: eigener Signierschlüssel als Secret MCUBOOT_SIGNING_KEY (PEM). Ohne ihn
 #    wird der öffentlich bekannte MCUboot-Testschlüssel verwendet.
@@ -74,7 +74,7 @@ jobs:
           v, app = sys.argv[1], sys.argv[2]
           h = IntelHex("build/mcuboot/zephyr/zephyr.hex")
           h.merge(IntelHex(f"{app}/zephyr.signed.hex"), overlap="error")
-          h.write_hex_file(f"out/feo_sensor_v{v}_erstinstallation.hex")
+          h.write_hex_file(f"out/feo_sensor_v{v}_factory.hex")
           PY
           ls -l out
 
@@ -91,27 +91,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" out/* -R "$GITHUB_REPOSITORY" --generate-notes \
             --title "FEO-Sensor $GITHUB_REF_NAME"
 
-      - name: Web-App mit Firmware für Pages vorbereiten
-        if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
-        run: |
-          V=${{ steps.ver.outputs.version }}
-          cp -r FEO_Sensor/docs site
-          mkdir -p site/fw
-          cp "out/feo_sensor_v${V}_update.bin" site/fw/
-          printf '{"version":"%s","file":"feo_sensor_v%s_update.bin","date":"%s"}\n' "$V" "$V" "$(date -u +%FT%TZ)" > site/fw/latest.json
-
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
-        with:
-          path: site
-
   pages:
     needs: build
     if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
-    runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
+    uses: ./.github/workflows/pages.yml
