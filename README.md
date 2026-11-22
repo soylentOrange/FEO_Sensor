@@ -171,12 +171,13 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 ### Features
 
 - Connect via **Bluetooth LE** or **USB serial**
+- Three tabs: **IMU** (plots and 3D view), **Calibration** (force sensor, kg display, calibration points, coefficients) and **Firmware update**. Connection, recording, battery badge and log stay visible on every tab; the last tab is remembered and can be linked directly (`#imu`, `#cal`, `#fw`)
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s
 - **3D orientation** view (Madgwick filter, accelerometer + gyroscope) with a model of the board, drag with mouse or finger to rotate the camera, "Zero" to reset orientation and gyro offset
 - **Force sensor** voltage plot with current range, **battery voltage** with a rough charge estimate (LiPo, only meaningful without USB charging)
 - **CSV recording** and download (including U_FSR, range, U_bat and the entered reference weight)
 - **Force–voltage calibration** points with CSV export
-- **Battery** level badge in the header (percentage estimate and voltage)
+- **Battery** level badge in the header (percentage estimate and voltage). The percentage is interpolated from a typical LiPo open-circuit discharge curve (3.3 V = 0 %, 3.7 V ≈ 25 %, 3.8 V ≈ 50 %, 4.0 V ≈ 78 %, 4.2 V = 100 %), so it reads high while charging and low under load
 - **Firmware update** over Bluetooth (MCUmgr/SMP)
 - German and English (switch in the top right corner)
 - Works offline after the first visit and can be installed as an app (PWA)

@@ -65,13 +65,14 @@
   .fw .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
   .fw progress { width: 100%; height: 10px; }
   .fw b { font: 600 12px ui-monospace, Menlo, monospace; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
+  @media (max-width: 900px) { main, body[data-page=cal] main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
   @media (max-width: 600px) {
     header { padding: 10px 10px; gap: 8px; } h1 { flex: 1; order: 0; } .lang { order: 1; }
     header > :not(h1):not(.lang) { order: 2; } .spacer { display: none; }
     #status { order: 3; flex-basis: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     main { padding: 0 8px 8px; gap: 8px; } footer { padding: 0 10px 12px; }
-    canvas { height: 190px; } .c3d canvas { height: 300px; }
+    canvas { height: 190px; } .c3d canvas { height: 300px; } body[data-page=cal] .fcard canvas { height: 220px; }
+    nav.tabs { padding: 0 8px; margin-bottom: 8px; } nav.tabs button { padding: 6px 10px; white-space: nowrap; }
     .card h2 { gap: 8px; }
   }
   footer .logos { display: flex; gap: 20px; align-items: center; margin-top: 8px; }
@@ -82,6 +83,14 @@
          max-height: 5.5em; overflow: auto; }
   .warn { padding: 12px 16px; color: var(--x); }
   .spacer { flex: 1; }
+  nav.tabs { display: flex; gap: 4px; padding: 0 16px; margin-bottom: 12px; border-bottom: 1px solid var(--grid); }
+  nav.tabs button { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: none;
+                    color: var(--muted); padding: 7px 14px; margin-bottom: -1px; }
+  nav.tabs button.on { background: var(--card); color: var(--fg); border-color: var(--grid); font-weight: 600; }
+  body:not([data-page=imu]) .t-imu, body:not([data-page=cal]) .t-cal, body:not([data-page=fw]) .t-fw { display: none; }
+  body[data-page=cal] main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  body[data-page=cal] .fcard canvas { height: 320px; }
+  body[data-page=fw] main { grid-template-columns: minmax(0, 1fr); }
   .lang button { padding: 4px 8px; font-size: 12px; }
   .lang button:first-child { border-radius: 6px 0 0 6px; } .lang button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
   .lang button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
@@ -107,14 +116,19 @@
   <span class="lang"><button id="lang-de">DE</button><button id="lang-en">EN</button></span>
 </header>
 <div id="nows" class="warn" hidden data-i18n="nows"></div>
+<nav class="tabs">
+  <button data-page="imu" data-i18n="tabImu"></button>
+  <button data-page="cal" data-i18n="tabCal"></button>
+  <button data-page="fw" data-i18n="tabFw"></button>
+</nav>
 <main>
-  <div class="card">
+  <div class="card t-imu">
     <h2><span data-i18n="acc"></span>
       <span class="sx">x <b id="vax">–</b></span><span class="sy">y <b id="vay">–</b></span><span class="sz">z <b id="vaz">–</b></span><span class="sm">|a| <b id="vam">–</b></span>
     </h2>
     <canvas id="acc"></canvas>
   </div>
-  <div class="card c3d">
+  <div class="card c3d t-imu">
     <h2><span data-i18n="orient"></span> <span><button id="flip" data-i18n="flip" data-i18n-title="flipT"></button>
       <button id="zero" data-i18n="zero" data-i18n-title="zeroT"></button></span></h2>
     <canvas id="view3d"></canvas>
@@ -122,13 +136,13 @@
       <span data-i18n="hint1"></span><br>
       <span data-i18n="hint2"></span></div>
   </div>
-  <div class="card">
+  <div class="card t-imu">
     <h2><span data-i18n="gyr"></span>
       <span class="sx">x <b id="vgx">–</b></span><span class="sy">y <b id="vgy">–</b></span><span class="sz">z <b id="vgz">–</b></span><span class="sm">|ω| <b id="vgm">–</b></span>
     </h2>
     <canvas id="gyr"></canvas>
   </div>
-  <div class="card fcard">
+  <div class="card fcard t-cal">
     <h2><span data-i18n="fsr"></span>
       <span class="sf">U <b id="vfsr">–</b> mV</span><span><span data-i18n="range"></span> <b id="vrange">–</b></span>
       <span><span data-i18n="bat"></span> <b id="vbat">–</b></span>
@@ -139,7 +153,7 @@
     </h2>
     <canvas id="fsrc"></canvas>
   </div>
-  <div class="card cal">
+  <div class="card cal t-cal">
     <h2><span data-i18n="cal"></span></h2>
     <div class="row">
       <label><span data-i18n="refKg"></span> <input id="refkg" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00"></label>
@@ -167,7 +181,7 @@
     </div>
     <div class="hint" id="fitTxt"></div>
   </div>
-  <div class="card fw logc">
+  <div class="card fw logc t-fw">
     <h2><span data-i18n="fw"></span> <span><span data-i18n="fwInst"></span> <b id="fwver">–</b></span></h2>
     <div class="row">
       <button id="fwLatest" disabled hidden></button>
@@ -224,6 +238,7 @@ const TEXT = {
     fitNeed: "Für den Fit mindestens 3 Messpunkte mit Gewicht > 0 (und am besten einen bei 0 kg) aufnehmen.",
     fitRes: (e, n) => `Fit aus ${n} Punkten: mittlere Abweichung ${e} %. Mit „Ins Gerät schreiben“ übernehmen.`,
     calSaved: "# Kalibrierung im Gerät gespeichert", calErr: m => "Kalibrierung schreiben fehlgeschlagen: " + m,
+    tabImu: "IMU", tabCal: "Kalibrierung", tabFw: "Firmware-Update",
     fw: "Firmware-Update (Bluetooth)", fwInst: "installiert:", fwPick: "Update-Datei wählen …",
     fwLatest: v => `Neueste Version ${v} installieren`, fwNoSmp: "Diese Firmware hat keine Update-Funktion (einmal per USB die *_factory.hex flashen).",
     fwBad: "Keine gültige Update-Datei (MCUboot-Image *_update.bin erwartet).",
@@ -263,6 +278,7 @@ const TEXT = {
     fitNeed: "The fit needs at least 3 points with weight > 0 (ideally one at 0 kg as well).",
     fitRes: (e, n) => `Fit from ${n} points: mean deviation ${e} %. Use “Write to device” to keep it.`,
     calSaved: "# Calibration saved in the device", calErr: m => "Writing calibration failed: " + m,
+    tabImu: "IMU", tabCal: "Calibration", tabFw: "Firmware update",
     fw: "Firmware update (Bluetooth)", fwInst: "installed:", fwPick: "Choose update file …",
     fwLatest: v => `Install latest version ${v}`, fwNoSmp: "This firmware has no update function (flash the *_factory.hex once via USB).",
     fwBad: "Not a valid update file (MCUboot image *_update.bin expected).",
@@ -1103,11 +1119,14 @@ function frame() {
     setStatus(`${bleDev ? "Bluetooth" : "USB"} · ${rateHz.toFixed(0).padStart(3, "\u2007")} Hz${rec}`);
   }
   if (!paused) {
-    drawChart($("acc"), [1, 2, 3, 7], 0.5, ["--x", "--y", "--z", "--m"]);
-    drawChart($("gyr"), [4, 5, 6, 8], 20, ["--x", "--y", "--z", "--m"]);
-    drawChart($("fsrc"), [9], 100, ["--f"], true);
-    drawCal();
-    draw3d();
+    if (page === "imu") {
+      drawChart($("acc"), [1, 2, 3, 7], 0.5, ["--x", "--y", "--z", "--m"]);
+      drawChart($("gyr"), [4, 5, 6, 8], 20, ["--x", "--y", "--z", "--m"]);
+      draw3d();
+    } else if (page === "cal") {
+      drawChart($("fsrc"), [9], 100, ["--f"], true);
+      drawCal();
+    }
     const last = buf[buf.length - 1];
     if (last) {
       ["vax", "vay", "vaz"].forEach((id, i) => $(id).textContent = fmt(last[1 + i], 2, 6));
@@ -1129,6 +1148,22 @@ function frame() {
   }
   requestAnimationFrame(frame);
 }
+// ---------- Seiten (Tabs) ----------
+let page = "imu";
+function setPage(p) {
+  if (!["imu", "cal", "fw"].includes(p)) p = "imu";
+  page = p;
+  document.body.dataset.page = p;
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.page === p));
+  try { localStorage.setItem("feo-page", p); } catch (e) {}
+  if (location.hash !== "#" + p) history.replaceState(null, "", "#" + p);
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => setPage(b.dataset.page));
+window.addEventListener("hashchange", () => setPage(location.hash.slice(1)));
+let startPage = location.hash.slice(1);
+if (!startPage) { try { startPage = localStorage.getItem("feo-page"); } catch (e) {} }
+setPage(startPage);
+
 requestAnimationFrame(frame);
 applyLang();
 renderCal();
