@@ -1,5 +1,6 @@
 # Firmware mit MCUboot bauen.
-#  - Tag "v1.2.3" pushen  -> GitHub-Release mit
+#  - Tag "v1.2.3" pushen oder im Browser ein Release mit neuem Tag "v1.2.3" anlegen
+#    -> GitHub-Release mit
 #      feo_sensor_v1.2.3_factory.hex  (MCUboot + Firmware, einmalig per USB flashen)
 #      feo_sensor_v1.2.3_update.bin            (signiertes Image für das Update per Bluetooth)
 #  - manuell (Actions -> Run workflow): nur bauen, Dateien als Artefakt
@@ -88,8 +89,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" out/* -R "$GITHUB_REPOSITORY" --generate-notes \
-            --title "FEO-Sensor $GITHUB_REF_NAME"
+          # Release schon vorhanden (z. B. im Browser über "Draft a new release" angelegt)?
+          # Dann nur die Dateien anhängen bzw. ersetzen.
+          if gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" out/* -R "$GITHUB_REPOSITORY" --generate-notes \
+              --title "FEO-Sensor $GITHUB_REF_NAME"
+          fi
 
   pages:
     needs: build
