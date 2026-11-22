@@ -1,5 +1,5 @@
 # Web-App (docs/) mit der Update-Datei des neuesten Releases auf GitHub Pages veröffentlichen.
-# Läuft bei Änderungen an docs/ auf main, nach jedem Release (aus release.yml) und manuell.
+# Läuft bei Änderungen an docs/ auf main, nach jedem Release (von release.yml gestartet) und manuell.
 # Voraussetzung: Settings -> Pages -> Source "GitHub Actions" und Variable DEPLOY_PAGES = true.
 name: Pages
 
@@ -8,7 +8,6 @@ on:
     branches: [main]
     paths: ["docs/**"]
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: read

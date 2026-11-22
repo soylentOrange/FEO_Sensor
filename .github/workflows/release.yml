@@ -4,7 +4,7 @@
 #      feo_sensor_v1.2.3_factory.hex  (MCUboot + Firmware, einmalig per USB flashen)
 #      feo_sensor_v1.2.3_update.bin            (signiertes Image für das Update per Bluetooth)
 #  - manuell (Actions -> Run workflow): nur bauen, Dateien als Artefakt
-#  - danach Web-App + neueste Update-Datei auf GitHub Pages (pages.yml),
+#  - danach Web-App + neueste Update-Datei auf GitHub Pages (startet pages.yml auf main),
 #    wenn die Repository-Variable DEPLOY_PAGES = true gesetzt ist (Pages-Quelle "GitHub Actions").
 #  - optional: eigener Signierschlüssel als Secret MCUBOOT_SIGNING_KEY (PEM). Ohne ihn
 #    wird der öffentlich bekannte MCUboot-Testschlüssel verwendet.
@@ -17,8 +17,7 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+  actions: write
 
 jobs:
   build:
@@ -98,7 +97,9 @@ jobs:
               --title "FEO-Sensor $GITHUB_REF_NAME"
           fi
 
-  pages:
-    needs: build
-    if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
-    uses: ./.github/workflows/pages.yml
+      # Pages neu bauen (auf main: die Umgebung github-pages erlaubt nur den Default-Branch)
+      - name: Pages mit neuer Firmware aktualisieren
+        if: github.ref_type == 'tag' && vars.DEPLOY_PAGES == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml -R "$GITHUB_REPOSITORY" --ref "${{ github.event.repository.default_branch }}"
