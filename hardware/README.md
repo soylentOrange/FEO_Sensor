@@ -71,6 +71,14 @@ Pin 2 (GND) of J1 sits next to pin 1 (unswitched LiPo +). Solder carefully and u
 - Overall ≈ 36 × 25 mm, ≈ 11–12 mm thick. The perfboard overhangs the battery by ≈ 3.6 mm on the left (or let the XIAO overhang 1.8 mm on the right).
 - Solder the BAT+ wire to the XIAO before mounting it on the battery.
 
+## Assembled prototype
+
+<p align="center">
+  <img src="assembly.jpg" alt="Assembled prototype: perfboard with MCP602 and JST-XH connector next to the XIAO nRF54L15 Sense, both on the LiPo" width="600">
+</p>
+
+Perfboard (left) with the MCP602 and the flat-mounted JST-XH connector, XIAO nRF54L15 Sense (right), both on the crosswise LiPo. Yellow: A0, white: D1.
+
 ## Regenerating the drawings
 
 ```
