@@ -34,7 +34,8 @@ jobs:
         run: |
           cp -r docs site
           mkdir -p site/fw
-          TAG=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          # neuestes veröffentlichtes Release, Pre-Releases eingeschlossen
+          TAG=$(gh api "repos/$GITHUB_REPOSITORY/releases" -q '[.[] | select(.draft | not)][0].tag_name // empty' || true)
           if [ -n "$TAG" ]; then
             gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*_update.bin' -D site/fw
             FILE=$(basename "$(ls site/fw/*_update.bin | head -1)")
