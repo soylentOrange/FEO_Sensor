@@ -307,7 +307,7 @@ const SAMPLE_MS = 10;
 const RANGES_MV = [900, 1800, 3600];   // Messbereich je nach SAADC-Gain 1, 1/2, 1/4
 let bleDev = null;
 let batMv = 0;                         // letzte Akkuspannung (mV), 0 = unbekannt
-let batChr = null, batT = 0;           // Akku-Characteristic, Zeitpunkt des letzten Werts
+let batChr = null, batT = 0, dataChr = null;           // Akku-Characteristic, Zeitpunkt des letzten Werts
 
 $("ble").onclick = async () => {
   if (bleDev) { bleDev.gatt.disconnect(); return; }
@@ -320,7 +320,7 @@ $("ble").onclick = async () => {
     setStatus("stBle");
     const server = await bleDev.gatt.connect();
     const svc = await server.getPrimaryService(FEO_SVC);
-    const ch = await svc.getCharacteristic(FEO_DATA);
+    const ch = dataChr = await svc.getCharacteristic(FEO_DATA);
     ch.addEventListener("characteristicvaluechanged", e => handlePacket(e.target.value));
     await ch.startNotifications();
     try {
@@ -601,6 +601,8 @@ async function fwInstall(buf) {
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
   try {
+    // Messdaten-Streaming pausieren: die volle Bandbreite gehört dem Upload
+    for (const c of [dataChr, batChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
     // größte Schreib-Größe finden, die vollständig ankommt (Echo mit passend langem Text)
     try {
       await smpCall(2, 0, 0, { d: "x".repeat(180 - 14) }, 3000, 180);   // genau 179 Byte, ein Write
@@ -628,7 +630,12 @@ async function fwInstall(buf) {
   } catch (e) {
     $("fwState").textContent = T("fwErr", e.message); log(T("fwErr", e.message));
     if (smpChr) $("fwPick").disabled = false;
-  } finally { fwBusy = false; prog.hidden = true; fwShowLatest(); }
+  } finally {
+    fwBusy = false; prog.hidden = true; fwShowLatest();
+    // nach einem Fehler Streaming wieder starten (nach Erfolg startet das Board ohnehin neu)
+    if (bleDev && bleDev.gatt.connected)
+      for (const c of [dataChr, batChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
+  }
 }
 
 $("fwPick").onclick = () => $("fwFile").click();
