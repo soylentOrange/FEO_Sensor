@@ -160,6 +160,12 @@ Storage is the secondary image slot (`slot1_partition`, 712 KB, of which 704 KB 
 
 Raw data (BLE) and stride records (BLE) can be switched off individually (stored in flash); the mask also has bits for the serial CSV and `#S` lines, which only matter in a debug build with the console enabled. Battery and the status/activity notification are always on while connected.
 
+### Pairing Code
+
+Without a code, anyone nearby can connect (default). A 6-digit code can be set in the app (Firmware tab); it is stored on the board. From then on, the FEO service and the firmware update (MCUmgr/SMP) need a link that is paired with the code: on connect the board requests pairing, the phone or computer shows its pairing dialog once, and the bond is stored on both sides. Until the link is paired, the board refuses reads and writes and disconnects after 60 s. Changing or removing the code drops all bonds.
+
+Code forgotten: hold the user button on the XIAO for 5 s while switching on (the LED blinks); this clears the code and all bonds. Then remove the board in the Bluetooth settings of the phone or computer. Flashing via USB does not clear the code (the settings partition is kept). Firmware images are still verified with the signing key, independent of the code.
+
 ### Building and Flashing
 
 Requirements: [PlatformIO](https://platformio.org) (e.g. the VS Code extension). The Seeed platform is fetched automatically.
@@ -209,7 +215,7 @@ t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
 
 - Characteristic `7a1e0015-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): sensor alignment, stored in flash. float32 R[3][3] (rows: x forward, y right = sagittal axis, z down, each in sensor coordinates), uint32 time (Unix s; 0 = none, the firmware then estimates the axis itself). Reading returns 28 more bytes: float32 axis[3] currently used, float32 gyro offset[3] (°/s), uint32 number of strides since power-on.
 - Characteristic `7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify, write): one 102-byte record per stride (see below). The last 1024 records stay in RAM; writing a uint32 `seq` sends all records from that number again.
-- Characteristic `7a1e0017-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write, notify about once per second): control and status. Status (44 bytes): uint8 version, uint8 flags (1 running, 2 log valid, 4 erasing, 8 clock set, 16 locked, 32 full), uint16 output mask, uint32 entries, uint32 capacity, uint32 device time (Unix s), uint16 threshold (0.01 kg), uint8 side, uint8 erase progress (%), char[8] pseudonym, uint32 index of the session header, uint32 uptime (ms), uint32 strides since power-up, uint8 activity (0 rest mode, 1 still, 2 moving), uint8 0, uint16 seconds still. Commands (byte 0): 1 set time (uint32 Unix s), 2 start (uint16 threshold, uint8 side, uint8 options bit 0 = erase first, char[8] pseudonym), 3 stop, 4 erase, 5 read out (uint32 from index, 0xFFFFFFFF = abort), 6 marker (uint16 number), 7 outputs (uint16 mask: 1 raw BLE, 2 strides BLE, 4 serial CSV, 8 serial strides).
+- Characteristic `7a1e0017-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write, notify about once per second): control and status. Status (44 bytes): uint8 version, uint8 flags (1 running, 2 log valid, 4 erasing, 8 clock set, 16 locked, 32 full), uint16 output mask, uint32 entries, uint32 capacity, uint32 device time (Unix s), uint16 threshold (0.01 kg), uint8 side, uint8 erase progress (%), char[8] pseudonym, uint32 index of the session header, uint32 uptime (ms), uint32 strides since power-up, uint8 activity (0 rest mode, 1 still, 2 moving), uint8 security (bit 0 pairing code set, bit 1 this link is paired), uint16 seconds still. Commands (byte 0): 1 set time (uint32 Unix s), 2 start (uint16 threshold, uint8 side, uint8 options bit 0 = erase first, char[8] pseudonym), 3 stop, 4 erase, 5 read out (uint32 from index, 0xFFFFFFFF = abort), 6 marker (uint16 number), 7 outputs (uint16 mask: 1 raw BLE, 2 strides BLE, 4 serial CSV, 8 serial strides), 8 pairing code (uint32 0..999999, 0xFFFFFFFF = none; drops all bonds).
 - Characteristic `7a1e0018-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify): log readout, uint32 index + up to 15 entries of 16 bytes; a packet without entries marks the end.
 
 The UUIDs differ from XIAO_IMU_Live, so the two apps do not pick up each other's boards.

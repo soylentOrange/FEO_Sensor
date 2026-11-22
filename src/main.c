@@ -133,6 +133,7 @@
 #define PKT_SAMPLE       14
 
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
+static const struct gpio_dt_spec btn = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 static const struct device *const imu = DEVICE_DT_GET(DT_ALIAS(imu0));
 static const struct gpio_dt_spec fsr_pwr = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), fsr_pwr_gpios);
 static const struct adc_dt_spec adc_fsr = ADC_DT_SPEC_GET_BY_NAME(DT_PATH(zephyr_user), fsr);
@@ -177,8 +178,13 @@ static const struct bt_uuid_128 feo_log_uuid = BT_UUID_INIT_128(FEO_LOG_UUID_VAL
 #define OUT_SER_STEP     BIT(3)   /* serial #S lines */
 #define OUT_ALL          0x000f
 #define CTRL_OUTPUTS     7        /* control command: uint16 output mask */
+#define CTRL_PASSKEY     8        /* control command: uint32 passkey 0..999999, 0xFFFFFFFF = none */
+#define PK_NONE          0xFFFFFFFFu
+#define PK_RESET_MS      5000     /* hold the user button this long at power-up: clear passkey + bonds */
+#define PK_PAIR_S        60       /* passkey set: disconnect if the link is not paired by then */
 #define CTRL_STATUS_LEN  (DL_STATUS_LEN + 8)
 static atomic_t outputs = ATOMIC_INIT(OUT_ALL);
+static atomic_t passkey = ATOMIC_INIT((atomic_val_t)PK_NONE);
 static atomic_t stride_total;     /* strides since power-up */
 static atomic_t activity;         /* 0 rest mode, 1 still, 2 moving */
 static atomic_t still_secs;
@@ -278,6 +284,14 @@ static int cal_settings_set(const char *name, size_t len, settings_read_cb read_
 
 	if (!strcmp(name, "frame")) {
 		return frame_settings_set(len, read_cb, cb_arg);
+	}
+	if (!strcmp(name, "pk")) {
+		uint8_t k[4];
+
+		if (len == 4 && read_cb(cb_arg, k, 4) == 4) {
+			atomic_set(&passkey, (atomic_val_t)sys_get_le32(k));
+		}
+		return 0;
 	}
 	if (!strcmp(name, "outputs")) {
 		uint8_t m[2];
@@ -431,6 +445,96 @@ static void log_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 	atomic_set(&log_notify_on, value == BT_GATT_CCC_NOTIFY);
 }
 
+static void led_set(bool on);
+
+/* ---------------- Pairing code (passkey) ----------------
+ * Without a passkey everything is open (as before). With a passkey, the FEO and
+ * MCUmgr (SMP) services need an authenticated (paired with the code) link: the
+ * board asks for pairing on connect, the phone or computer shows its pairing
+ * dialog, and until then reads and writes are refused. Bonds are stored, so
+ * a paired phone does not ask again. Reset: hold the user button at power-up. */
+static bool pk_set(void)
+{
+	return (uint32_t)atomic_get(&passkey) != PK_NONE;
+}
+
+static void passkey_store(uint32_t k)
+{
+	uint8_t v[4];
+
+	atomic_set(&passkey, (atomic_val_t)k);
+	sys_put_le32(k, v);
+	settings_save_one("feo/pk", v, 4);
+}
+
+static void unpair_handler(struct k_work *w)
+{
+	ARG_UNUSED(w);
+	bt_unpair(BT_ID_DEFAULT, NULL);
+}
+static K_WORK_DEFINE(unpair_work, unpair_handler);
+
+static uint32_t app_passkey(struct bt_conn *conn)
+{
+	ARG_UNUSED(conn);
+	return pk_set() ? (uint32_t)atomic_get(&passkey) : BT_PASSKEY_RAND;
+}
+
+static void passkey_display(struct bt_conn *conn, unsigned int key)
+{
+	ARG_UNUSED(conn);
+	ARG_UNUSED(key);   /* no display: the user knows the code */
+}
+
+static void auth_cancel(struct bt_conn *conn)
+{
+	ARG_UNUSED(conn);
+}
+
+static struct bt_conn_auth_cb auth_cb = {
+	.app_passkey = app_passkey,
+	.passkey_display = passkey_display,
+	.cancel = auth_cancel,
+};
+
+static bool link_ok(struct bt_conn *conn)
+{
+	return !pk_set() || bt_conn_get_security(conn) >= BT_SECURITY_L3;
+}
+
+static void pair_timeout_handler(struct k_work *w)
+{
+	ARG_UNUSED(w);
+	if (cur_conn && !link_ok(cur_conn)) {
+		bt_conn_disconnect(cur_conn, BT_HCI_ERR_AUTH_FAIL);
+	}
+}
+static K_WORK_DELAYABLE_DEFINE(pair_timeout, pair_timeout_handler);
+
+/* user button held at power-up: clear the passkey and all bonds (LED fast blink) */
+static void passkey_reset_check(void)
+{
+	if (!gpio_is_ready_dt(&btn) || gpio_pin_configure_dt(&btn, GPIO_INPUT) ||
+	    gpio_pin_get_dt(&btn) <= 0) {
+		return;
+	}
+	for (int t = 0; t < PK_RESET_MS; t += 100) {
+		if (gpio_pin_get_dt(&btn) <= 0) {
+			return;
+		}
+		led_set(t % 1000 < 100);
+		k_msleep(100);
+	}
+	passkey_store(PK_NONE);
+	bt_unpair(BT_ID_DEFAULT, NULL);
+	for (int i = 0; i < 10; i++) {
+		led_set(i & 1);
+		k_msleep(80);
+	}
+	led_set(false);
+	printk("# Pairing code and bonds cleared\n");
+}
+
 /* Status: dl_status() (output mask at offset 2) + uint32 strides since power-up,
  * uint8 activity (0 rest mode, 1 still, 2 moving), uint8 0, uint16 seconds still */
 static void ctrl_status(uint8_t b[CTRL_STATUS_LEN])
@@ -439,7 +543,8 @@ static void ctrl_status(uint8_t b[CTRL_STATUS_LEN])
 	sys_put_le16((uint16_t)atomic_get(&outputs), b + 2);
 	sys_put_le32((uint32_t)atomic_get(&stride_total), b + DL_STATUS_LEN);
 	b[DL_STATUS_LEN + 4] = (uint8_t)atomic_get(&activity);
-	b[DL_STATUS_LEN + 5] = 0;
+	b[DL_STATUS_LEN + 5] = (pk_set() ? 1 : 0) |
+		(cur_conn && bt_conn_get_security(cur_conn) >= BT_SECURITY_L3 ? 2 : 0);
 	sys_put_le16((uint16_t)MIN(atomic_get(&still_secs), UINT16_MAX), b + DL_STATUS_LEN + 6);
 }
 
@@ -469,6 +574,19 @@ static ssize_t ctrl_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		sys_put_le16(sys_get_le16(b + 1) & OUT_ALL, m);
 		atomic_set(&outputs, sys_get_le16(m));
 		settings_save_one("feo/outputs", m, 2);
+	} else if (b[0] == CTRL_PASSKEY) {
+		if (len != 5) {
+			return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+		}
+		uint32_t k = sys_get_le32(b + 1);
+
+		if (k != PK_NONE && k > 999999) {
+			return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+		}
+		passkey_store(k);
+		/* old bonds were made with the old code: drop them (a bonded link
+		 * is disconnected and pairs again with the new code) */
+		k_work_submit(&unpair_work);
 	} else if (dl_command(b, len)) {
 		return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
 	}
@@ -506,6 +624,29 @@ BT_GATT_SERVICE_DEFINE(feo_svc,
 	BT_GATT_CCC(log_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
+/* GAP/GATT services and all declarations stay readable (discovery); the FEO
+ * service and SMP come after them in the attribute table */
+static bool attr_open(const struct bt_gatt_attr *attr)
+{
+	if (!bt_uuid_cmp(attr->uuid, BT_UUID_GATT_PRIMARY) ||
+	    !bt_uuid_cmp(attr->uuid, BT_UUID_GATT_SECONDARY) ||
+	    !bt_uuid_cmp(attr->uuid, BT_UUID_GATT_CHRC) ||
+	    !bt_uuid_cmp(attr->uuid, BT_UUID_GATT_INCLUDE)) {
+		return true;
+	}
+	return bt_gatt_attr_get_handle(attr) < bt_gatt_attr_get_handle(&feo_svc.attrs[0]);
+}
+
+static bool authorize(struct bt_conn *conn, const struct bt_gatt_attr *attr)
+{
+	return attr_open(attr) || link_ok(conn);
+}
+
+static const struct bt_gatt_authorization_cb authz_cb = {
+	.read_authorize = authorize,
+	.write_authorize = authorize,
+};
+
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID128_ALL, FEO_SVC_UUID_VAL),
@@ -524,6 +665,11 @@ static void connected(struct bt_conn *conn, uint8_t err)
 	}
 	cur_conn = bt_conn_ref(conn);
 	printk("# BLE: verbunden\n");
+	if (pk_set()) {
+		/* ask the central to pair (passkey entry); refused attributes until then */
+		bt_conn_set_security(conn, BT_SECURITY_L3);
+		k_work_reschedule(&pair_timeout, K_SECONDS(PK_PAIR_S));
+	}
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -538,6 +684,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	const uint8_t abort_rd[5] = { DL_C_READ, 0xff, 0xff, 0xff, 0xff };
 
 	dl_command(abort_rd, sizeof(abort_rd));
+	k_work_cancel_delayable(&pair_timeout);
 	if (cur_conn) {
 		bt_conn_unref(cur_conn);
 		cur_conn = NULL;
@@ -1179,7 +1326,7 @@ int main(void)
 	rest_init();
 
 	if (settings_subsys_init() == 0) {
-		settings_load();
+		settings_load_subtree("feo");   /* "bt" (bonds) after bt_enable() */
 	} else {
 		printk("# Fehler: Settings (Kalibrierung) nicht verfügbar\n");
 	}
@@ -1193,6 +1340,12 @@ int main(void)
 
 	int err = bt_enable(NULL);
 
+	if (!err) {
+		settings_load_subtree("bt");     /* bonds */
+		bt_conn_auth_cb_register(&auth_cb);
+		bt_gatt_authorization_cb_register(&authz_cb);
+		passkey_reset_check();
+	}
 	if (err) {
 		printk("# Fehler: Bluetooth-Start (%d), nur seriell\n", err);
 		atomic_set(&need_adv, 0);

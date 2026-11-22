@@ -386,6 +386,15 @@
     </div>
     <progress id="fwProg" max="1" value="0" hidden></progress>
   </div>
+  <div class="card fw pk t-fw">
+    <h2><span data-i18n="pkTitle"></span> <span class="hint" id="pkState">–</span></h2>
+    <div class="row">
+      <input id="pkCode" inputmode="numeric" maxlength="6" size="8" placeholder="123456" autocomplete="off">
+      <button id="pkSet" disabled data-i18n="pkSetB"></button>
+      <button id="pkClear" disabled data-i18n="pkClearB"></button>
+    </div>
+    <div class="hint" data-i18n="pkHint"></div>
+  </div>
   <div class="card logc"><div id="log"></div></div>
 </main>
 <footer><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
@@ -508,6 +517,14 @@ const TEXT = {
     dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
     dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
     dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
+    pkTitle: "Kopplungscode", pkSetB: "Code setzen", pkClearB: "Code entfernen",
+    pkOff: "aus: jeder kann sich verbinden", pkOn: "aktiv", pkOnPaired: "aktiv, diese Verbindung ist gekoppelt",
+    pkHint: "Mit Code verbindet sich nur, wer ihn kennt: beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt. Gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.",
+    pkBad: "Bitte 6 Ziffern eingeben.",
+    pkAsk: c => `Kopplungscode ${c} setzen?\n\nMerken! Ohne Code kommt man nur noch über die Taste beim Einschalten wieder ans Board. Bereits gekoppelte Geräte müssen neu koppeln; ist diese Verbindung gekoppelt, trennt das Board sie gleich.`,
+    pkClearAsk: "Kopplungscode entfernen? Danach kann sich jeder in der Nähe verbinden.",
+    pkDone: "# Kopplungscode gespeichert", pkCleared: "# Kopplungscode entfernt",
+    pkWait: "Kopplung: Code im Systemdialog eingeben …", pkFail: "Nicht gekoppelt (Code falsch oder Dialog abgebrochen). Ggf. das Board in den Bluetooth-Einstellungen entfernen und neu verbinden.",
     fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „Firmware-Update“ die neueste Version installieren (ab v0.4.0).",
     outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     outsHint: "Akku und Aktivität laufen immer.",
@@ -624,6 +641,14 @@ const TEXT = {
     dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
     dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
     dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
+    pkTitle: "Pairing code", pkSetB: "Set code", pkClearB: "Remove code",
+    pkOff: "off: anyone can connect", pkOn: "active", pkOnPaired: "active, this link is paired",
+    pkHint: "With a code, only those who know it can connect: on the first connect the system asks once for the code (Android dialog, a notification on the Mac); after that the device stays paired. This also covers the firmware update. Code forgotten: hold the button on the XIAO for 5 s while switching on (LED blinks); this clears code and pairings. Then remove the board in the Bluetooth settings of the phone/computer.",
+    pkBad: "Please enter 6 digits.",
+    pkAsk: c => `Set pairing code ${c}?\n\nRemember it! Without the code, only the button at power-up gets you back to the board. Devices already paired must pair again; if this link is paired, the board disconnects it now.`,
+    pkClearAsk: "Remove the pairing code? Anyone nearby can then connect.",
+    pkDone: "# Pairing code stored", pkCleared: "# Pairing code removed",
+    pkWait: "Pairing: enter the code in the system dialog …", pkFail: "Not paired (wrong code or dialog cancelled). If needed, remove the board in the Bluetooth settings and connect again.",
     fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “Firmware update” (v0.4.0 or later).",
     outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     outsHint: "Battery and activity are always on.",
@@ -687,6 +712,7 @@ $("ble").onclick = async () => {
     setStatus("stBle");
     const server = await bleDev.gatt.connect();
     const svc = await server.getPrimaryService(FEO_SVC);
+    await pkWaitAccess(svc);
     const ch = dataChr = await svc.getCharacteristic(FEO_DATA);
     ch.addEventListener("characteristicvaluechanged", e => handlePacket(e.target.value));
     streamOn = false; await updateStreaming();   // Rohdaten nur, wenn eine Seite sie braucht
@@ -1993,7 +2019,7 @@ function parseStatus(dv) {
   for (let i = 0; i < 8; i++) { const c = dv.getUint8(20 + i); if (c) ps += String.fromCharCode(c); }
   return { flags: dv.getUint8(1), outputs: u16(2), count: u32(4), cap: u32(8), unix: u32(12), thr: u16(16) / 100,
            side: dv.getUint8(18), erasePct: dv.getUint8(19), pseudo: ps, sessIdx: u32(28), uptime: u32(32),
-           strides: u32(36), activity: dv.getUint8(40), still: u16(42), at: Date.now() };
+           strides: u32(36), activity: dv.getUint8(40), still: u16(42), sec: dv.getUint8(41), at: Date.now() };
 }
 function onStatus(dv) {
   const s = parseStatus(dv);
@@ -2021,7 +2047,7 @@ async function ctrlConnect(svc) {
   renderLogStatus();
 }
 function ctrlDisconnected() {
-  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true; $("fwOld").hidden = true;
+  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true; batMv = 0; $("fwOld").hidden = true;
   renderLogStatus();
 }
 
@@ -2163,7 +2189,38 @@ function selSession() {
 }
 
 // ----- render -----
+// Pairing code: with a code set, the board refuses access until the link is paired;
+// the system shows its pairing dialog meanwhile, so retry for up to a minute
+async function pkWaitAccess(svc) {
+  const c = await svc.getCharacteristic(FEO_BAT);
+  for (let i = 0; ; i++) {
+    try { await c.readValue(); if (i) log("# " + T("pkOnPaired")); return; }
+    catch (e) {
+      if (!bleDev || !bleDev.gatt.connected || i >= 40) throw new Error(T("pkFail"));
+      if (i === 0) { setStatus("pkWait"); log("# " + T("pkWait")); }
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+}
+function renderPk() {
+  const st = devSt, conn = !!(ctrlChr && st);
+  $("pkState").textContent = !conn ? "–" : st.sec & 1 ? T(st.sec & 2 ? "pkOnPaired" : "pkOn") : T("pkOff");
+  $("pkSet").disabled = !conn; $("pkClear").disabled = !conn || !(st.sec & 1);
+}
+$("pkSet").onclick = async () => {
+  const c = $("pkCode").value.trim();
+  if (!/^\d{6}$/.test(c)) { $("pkState").textContent = T("pkBad"); return; }
+  if (!confirm(T("pkAsk", c))) return;
+  const k = Number(c);
+  try { await ctrlCmd([8, k & 255, (k >> 8) & 255, (k >> 16) & 255, k >>> 24]); log(T("pkDone")); $("pkCode").value = ""; }
+  catch (e) { log(T("logBleErr", e.message)); }
+};
+$("pkClear").onclick = async () => {
+  if (!confirm(T("pkClearAsk"))) return;
+  try { await ctrlCmd([8, 255, 255, 255, 255]); log(T("pkCleared")); } catch (e) { log(T("logBleErr", e.message)); }
+};
 function renderLogStatus() {
+  renderPk();
   const st = devSt, f = st ? st.flags : 0, conn = !!(ctrlChr && st);
   let state = "–";
   if (conn) state = f & DL_ST.ERASING ? T("dlErasing", st.erasePct) : f & DL_ST.RUN ? T("dlRunning")
