@@ -1926,7 +1926,7 @@ function renderOuts() {
   const b = $("actBadge");
   b.hidden = false;
   const act = devSt.activity === 2 ? T("actMove") : devSt.activity === 1 ? T("actStill") : T("actRest");
-  b.textContent = `${act} · ${devSt.strides} ${T("actStrides")}${devSt.flags & DL_ST.RUN ? " · ⏺" : ""}`;
+  b.textContent = `${act}${devSt.flags & DL_ST.RUN ? " · ⏺" : ""}`;
   b.classList.toggle("act-on", devSt.activity === 2);
   if (devSt.strides > actStrides && actStrides >= 0) actBlink();
   actStrides = devSt.strides;

@@ -234,7 +234,7 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 
 - Connect via **Bluetooth LE** (the USB serial connection is hidden because the firmware no longer uses the console)
 - Six tabs: **Steps** (lab measurement: strides and force per gait phase, video), **Long-term** (measurement in the device), **Alignment** (sensor axes on the shank), **Calibration** (force sensor, kg display, calibration points, coefficients), **IMU** (plots and 3D view) and **Firmware update**. Connection, recording, battery and activity badges, output switches and log stay visible on every tab; the last tab is remembered and can be linked directly (`#gait`, `#log`, `#align`, `#cal`, `#imu`, `#fw`)
-- **Activity badge** in the header (Bluetooth): moving / still / rest mode, strides since power-up and ⏺ while a long-term measurement runs; it flashes orange at every stride
+- **Activity badge** in the header (Bluetooth): moving / still / rest mode and ⏺ while a long-term measurement runs; it flashes orange at every stride
 - **Long-term:** start/stop with pseudonym, side and threshold, markers, readout, analysis and CSV export (see [below](#long-term-measurement-tab))
 - **Outputs:** switch raw data and stride records on and off
 - **Video in sync** (Steps tab): records a video with the phone or laptop camera together with the data recording. Device time is mapped to browser time from the incoming samples (minimum delay over a 20 s window), so the data CSV gets a `video_ms` column and a separate CSV lists the strides with their time in the video (`video_s`). The sensor LED flashes at every initial contact, which can be used to check the sync in the video. Needs Chrome on Android or desktop (Web Bluetooth + MediaRecorder); not available on the iPhone
