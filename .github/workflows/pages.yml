@@ -1,0 +1,53 @@
+# Web-App (docs/) mit der Update-Datei des neuesten Releases auf GitHub Pages veröffentlichen.
+# Läuft bei Änderungen an docs/ auf main, nach jedem Release (aus release.yml) und manuell.
+# Voraussetzung: Settings -> Pages -> Source "GitHub Actions" und Variable DEPLOY_PAGES = true.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_PAGES == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seite mit neuester Firmware zusammenstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp -r docs site
+          mkdir -p site/fw
+          TAG=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*_update.bin' -D site/fw
+            FILE=$(basename "$(ls site/fw/*_update.bin | head -1)")
+            printf '{"version":"%s","file":"%s","tag":"%s"}\n' "${TAG#v}" "$FILE" "$TAG" > site/fw/latest.json
+            cat site/fw/latest.json
+          else
+            echo "Noch kein Release: App ohne Firmware-Download"
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -12,7 +12,7 @@ Sensor firmware and browser app for a heel offloading orthosis ("Fersenentlastun
 
 The web app shows everything live via **Bluetooth LE** or **USB serial**, records CSV, and has a **force–voltage calibration** panel (reference weight per point, averaged voltage, CSV export).
 
-**Web app:** `docs/index.html` (open from disk in Chrome/Edge, or enable GitHub Pages for `docs/`)
+**Web app:** <https://soylentorange.github.io/FEO_Sensor/> (Chrome or Edge on desktop and Android, installable as an app; published by the release workflow, see [Firmware Updates](#firmware-updates-over-bluetooth-ota)). `docs/index.html` also works opened from disk.
 
 <p align="center">
   <img src="docs/assets/screenshot.png" alt="Screenshot of the FEO sensor web app" width="900">
@@ -73,21 +73,21 @@ Voltages are reported in mV at the pin, including the ~0.1 V reference offset of
 
 Release builds contain the **MCUboot** bootloader and an **MCUmgr/SMP** service, so new firmware can be installed from the web app without a cable.
 
-1. **Once, via USB:** flash `feo_sensor_vX.Y.Z_erstinstallation.hex` (MCUboot + firmware) from a [release](../../releases), e.g.
+1. **Once, via USB:** flash `feo_sensor_vX.Y.Z_factory.hex` (MCUboot + firmware) from a [release](../../releases), e.g.
    ```bash
-   pyocd flash -t nrf54l feo_sensor_v1.0.0_erstinstallation.hex
+   pyocd flash -t nrf54l feo_sensor_v1.0.0_factory.hex
    ```
    (pyOCD comes with PlatformIO: `~/.platformio/penv/bin/pyocd`; `pip install pyocd` also works.)
 2. **Later updates:** connect the web app via Bluetooth. The *Firmware update* card shows the installed version. Choose `feo_sensor_vX.Y.Z_update.bin` from the release (or press *Install latest version* when the app is served via GitHub Pages, see below). The app uploads the image, the board restarts, MCUboot swaps the images, and the new firmware confirms itself once IMU, ADC and Bluetooth are running. If it does not get that far, MCUboot restores the previous version on the next reset.
 
 **Making a release:** push a tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. The workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) builds with Zephyr 4.4.2 and sysbuild ([`west.yml`](west.yml), [`zephyr/sysbuild.conf`](zephyr/sysbuild.conf), [`zephyr/ota.conf`](zephyr/ota.conf)) and attaches both files to the release. *Run workflow* without a tag only builds (artifacts).
 
-**Automatic download in the app (optional):** browsers cannot download release assets directly (no CORS, and the repository is private). If the app is served via GitHub Pages (public repository or a paid plan), set the repository variable `DEPLOY_PAGES` to `true` and the Pages source to *GitHub Actions*. Each release then publishes the web app together with `fw/latest.json` and the update file, and the app offers *Install latest version*.
+**Automatic download in the app:** browsers cannot download release assets directly (no CORS). Therefore each release also publishes the web app together with `fw/latest.json` and the update file on GitHub Pages, and the app offers *Install latest version*. The workflow [`pages.yml`](.github/workflows/pages.yml) also redeploys when `docs/` changes on `main`. One-time setup: *Settings → Pages → Source: GitHub Actions*, and *Settings → Secrets and variables → Actions → Variables*: `DEPLOY_PAGES` = `true`.
 
 > [!WARNING]
-> Without the secret `MCUBOOT_SIGNING_KEY` (PEM, e.g. `imgtool keygen -k key.pem -t ecdsa-p256`), images are signed with MCUboot's public test key, so anyone could install firmware via Bluetooth. Fine for the prototype; set your own key before the board goes to patients. Changing the key later requires flashing the initial-install file via USB again.
+> Without the secret `MCUBOOT_SIGNING_KEY` (PEM, e.g. `imgtool keygen -k key.pem -t ecdsa-p256`), images are signed with MCUboot's public test key, so anyone could install firmware via Bluetooth. Fine for the prototype; set your own key before the board goes to patients. Changing the key later requires flashing the `_factory.hex` via USB again.
 
-The PlatformIO build below has no bootloader and no OTA. Flashing it overwrites MCUboot; flash an `_erstinstallation.hex` again to get OTA back.
+The PlatformIO build below has no bootloader and no OTA. Flashing it overwrites MCUboot; flash a `_factory.hex` again to get OTA back.
 
 ### Building and Flashing
 
@@ -192,7 +192,7 @@ Web Bluetooth and Web Serial need a secure context: `https://` (e.g. GitHub Page
 
 ### Install on Android
 
-1. Open the web app (GitHub Pages URL of this repository) in Chrome.
+1. Open the [web app](https://soylentorange.github.io/FEO_Sensor/) in Chrome.
 2. Menu ⋮ → **Add to Home screen** → **Install**.
 3. Start "FEO live" from the home screen, tap **Connect Bluetooth** and choose `XIAO-FEO`. Android asks for the "Nearby devices" permission the first time.
 
@@ -206,7 +206,7 @@ zephyr/app.overlay      Pins: D1 amplifier supply, A0 FSR, AIN7 battery
 zephyr/sysbuild.conf    MCUboot for the release build
 zephyr/ota.conf         MCUmgr/SMP over BLE (release build only)
 west.yml                Zephyr version for the release build
-.github/workflows/      Release build (MCUboot image + OTA update file, optional Pages deploy)
+.github/workflows/      release.yml: firmware release (factory hex + OTA update); pages.yml: web app + latest update on Pages
 zephyr/CMakeLists.txt
 docs/index.html         Web app (single file)
 docs/manifest.webmanifest, docs/sw.js, docs/icons/   PWA files
