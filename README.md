@@ -23,7 +23,7 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Hardware](#hardware)
+2. [Hardware](#hardware) ([details](hardware/README.md))
 3. [Firmware](#firmware)
    - [Building and Flashing](#building-and-flashing)
    - [Data Formats](#data-formats)
@@ -47,6 +47,8 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 - **Web app:** a single HTML file without external dependencies. Uses Web Bluetooth and Web Serial, a Madgwick filter for orientation, and a small 3D model derived from the Seeed STEP model.
 
 ## Hardware
+
+Schematic, bill of materials, perfboard layout, wiring and arrangement: **[hardware/README.md](hardware/README.md)**.
 
 | XIAO pin | nRF54L15 | Use |
 |---|---|---|
@@ -225,6 +227,7 @@ zephyr/CMakeLists.txt
 docs/index.html         Web app (single file)
 docs/manifest.webmanifest, docs/sw.js, docs/icons/   PWA files
 docs/assets/            Logos and screenshot
+hardware/               Schematic, BOM, perfboard layout, wiring (see hardware/README.md)
 ```
 
 ---
