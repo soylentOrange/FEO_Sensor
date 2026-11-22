@@ -9,6 +9,10 @@
  * Die ADC-Kanäle 0 und 7 sind in der Board-Devicetree schon angelegt
  * (12 bit, 8-fach Oversampling, interne Referenz 0,9 V). Die Verstärkung
  * für den FSR-Kanal stellt die Firmware zur Laufzeit um.
+ *
+ * Die serielle Schnittstelle (Konsole) sendet nur; ohne Empfänger spart der
+ * UARTE Strom. Der Aufwach-Interrupt der IMU (INT1 an P0.02) ist in der
+ * Board-Devicetree als irq-gpios eingetragen.
  */
 / {
 	zephyr,user {
@@ -16,4 +20,8 @@
 		io-channel-names = "fsr", "vbat";
 		fsr-pwr-gpios = <&xiao_d 1 GPIO_ACTIVE_HIGH>;
 	};
+};
+
+&uart20 {
+	disable-rx;
 };

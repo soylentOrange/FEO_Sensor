@@ -65,7 +65,7 @@
   .fw .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
   .fw progress { width: 100%; height: 10px; }
   .fw b { font: 600 12px ui-monospace, Menlo, monospace; }
-  @media (max-width: 900px) { main, body[data-page=cal] main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
+  @media (max-width: 900px) { main, body[data-page=cal] main, body[data-page=align] main, body[data-page=gait] main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
   @media (max-width: 600px) {
     header { padding: 10px 10px; gap: 8px; } h1 { flex: 1; order: 0; } .lang { order: 1; }
     header > :not(h1):not(.lang) { order: 2; } .spacer { display: none; }
@@ -87,7 +87,21 @@
   nav.tabs button { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: none;
                     color: var(--muted); padding: 7px 14px; margin-bottom: -1px; }
   nav.tabs button.on { background: var(--card); color: var(--fg); border-color: var(--grid); font-weight: 600; }
-  body:not([data-page=imu]) .t-imu, body:not([data-page=cal]) .t-cal, body:not([data-page=fw]) .t-fw { display: none; }
+  body:not([data-page=imu]) .t-imu, body:not([data-page=cal]) .t-cal, body:not([data-page=fw]) .t-fw,
+  body:not([data-page=align]) .t-align, body:not([data-page=gait]) .t-gait { display: none; }
+  body[data-page=align] main, body[data-page=gait] main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .al ol { margin: 6px 0; padding-left: 20px; } .al li { margin: 8px 0; }
+  .al li b, #alRes { font: 600 12px ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+  .al .row, .gsum .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 6px 0; }
+  .tile { border: 1px solid var(--grid); border-radius: 6px; padding: 6px 8px; }
+  .tile span { display: block; font-size: 11px; color: var(--muted); }
+  .tile b { font: 600 18px ui-monospace, Menlo, monospace; }
+  .tile.f b { color: var(--f); }
+  .gt table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
+  .gt th, .gt td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  .gt th { font-weight: 600; color: var(--muted); } .gt .tbl { max-height: 16em; overflow: auto; }
+  .t-gait canvas { height: 220px; }
   body[data-page=cal] main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body[data-page=cal] .fcard canvas { height: 320px; }
   body[data-page=fw] main { grid-template-columns: minmax(0, 1fr); }
@@ -119,6 +133,8 @@
 <nav class="tabs">
   <button data-page="imu" data-i18n="tabImu"></button>
   <button data-page="cal" data-i18n="tabCal"></button>
+  <button data-page="align" data-i18n="tabAlign"></button>
+  <button data-page="gait" data-i18n="tabGait"></button>
   <button data-page="fw" data-i18n="tabFw"></button>
 </nav>
 <main>
@@ -180,6 +196,65 @@
       <button id="calFactory" data-i18n="calFactory"></button>
     </div>
     <div class="hint" id="fitTxt"></div>
+  </div>
+  <div class="card al t-align">
+    <h2><span data-i18n="alTitle"></span> <span class="hint" id="alDev"></span></h2>
+    <div class="hint" data-i18n="alIntro"></div>
+    <div class="row"><label><span data-i18n="alMode"></span>
+      <select id="alMode"><option value="walk" data-i18n="alWalk"></option><option value="pend" data-i18n="alPend"></option></select></label></div>
+    <ol>
+      <li><span data-i18n="alS1"></span><div class="row"><button id="alStill" data-i18n="alStillB"></button> <b id="alStillR"></b></div></li>
+      <li><span id="alS2"></span><div class="row"><button id="alMove"></button> <b id="alMoveR"></b></div></li>
+      <li><span data-i18n="alS3"></span><div class="row"><button id="alDir" data-i18n="alDirB"></button>
+        <button id="alFlip" data-i18n="alFlip"></button> <b id="alDirR"></b></div></li>
+    </ol>
+    <div class="hint"><b id="alRes">–</b></div>
+    <div class="row"><button id="alWrite" class="primary" disabled data-i18n="alWrite"></button>
+      <button id="alAuto" disabled data-i18n="alAuto"></button></div>
+  </div>
+  <div class="card t-align">
+    <h2><span data-i18n="alLive"></span> <span class="sz">ω<sub>sag</sub> <b id="vsag">–</b> °/s</span></h2>
+    <canvas id="sagc"></canvas>
+    <div class="hint" data-i18n="alLiveHint"></div>
+  </div>
+  <div class="card gsum t-gait">
+    <h2><span data-i18n="gTitle"></span> <span class="hint" id="gSrc"></span></h2>
+    <div class="tiles">
+      <div class="tile"><span data-i18n="gN"></span><b id="gtN">–</b></div>
+      <div class="tile"><span data-i18n="gCad"></span><b id="gtCad">–</b></div>
+      <div class="tile"><span data-i18n="gStride"></span><b id="gtStride">–</b></div>
+      <div class="tile"><span data-i18n="gStance"></span><b id="gtStance">–</b></div>
+      <div class="tile f"><span data-i18n="gPeak"></span><b id="gtPeak">–</b></div>
+      <div class="tile f"><span data-i18n="gLR"></span><b id="gtLR">–</b></div>
+      <div class="tile f"><span data-i18n="gSwing"></span><b id="gtSwing">–</b></div>
+    </div>
+    <div class="row">
+      <label><span data-i18n="gAvg"></span> <select id="gSel"><option value="10">10</option><option value="30" selected>30</option>
+        <option value="100">100</option><option value="0" data-i18n="gAll"></option></select></label>
+      <button id="gLoad" disabled data-i18n="gLoad"></button>
+      <button id="gCsv" data-i18n="gCsv"></button>
+      <button id="gClear" data-i18n="gClear"></button>
+    </div>
+    <div class="hint" data-i18n="gHint"></div>
+  </div>
+  <div class="card t-gait">
+    <h2><span data-i18n="gPhase"></span></h2>
+    <canvas id="gPh"></canvas>
+    <div class="hint" data-i18n="gPhHint"></div>
+  </div>
+  <div class="card t-gait">
+    <h2><span data-i18n="gCycle"></span></h2>
+    <canvas id="gCyc"></canvas>
+  </div>
+  <div class="card t-gait">
+    <h2><span data-i18n="gTrend"></span></h2>
+    <canvas id="gTr"></canvas>
+  </div>
+  <div class="card gt logc t-gait">
+    <h2><span data-i18n="gTable"></span></h2>
+    <div class="tbl"><table><thead><tr><th>#</th><th>t s</th><th data-i18n="gThStride"></th><th data-i18n="gThStance"></th><th>MS °/s</th>
+      <th data-i18n="gThPeak"></th><th data-i18n="gThMean"></th><th>LR</th><th>MSt</th><th>TSt</th><th>PSw</th><th data-i18n="gThSw"></th><th></th></tr></thead>
+      <tbody id="gTb"></tbody></table></div>
   </div>
   <div class="card fw logc t-fw">
     <h2><span data-i18n="fw"></span> <span><span data-i18n="fwInst"></span> <b id="fwver">–</b></span></h2>
@@ -246,6 +321,40 @@ const TEXT = {
     fwUp: (p, kb) => `Übertrage … ${p} % (${kb} kB/s)`, fwSame: "Diese Version ist bereits installiert.",
     fwReboot: "Übertragen. Board startet neu und installiert das Update (einige Sekunden), dann neu verbinden.",
     fwErr: m => "Update fehlgeschlagen: " + m, fwBusy: "Update läuft …",
+    tabAlign: "Ausrichtung", tabGait: "Schritte",
+    alTitle: "Ausrichtung des Sensors am Unterschenkel",
+    alIntro: "Die Schritterkennung braucht die Drehrate des Unterschenkels in der Sagittalebene (positiv = Fuß schwingt nach vorn). Weil der Sensor nicht genau ausgerichtet sitzt, bestimmt die App die Drehachse aus einer Bewegung (Hauptachse der Drehrate) und die Längsachse aus der Schwerkraft. Ohne Kalibrierung schätzt die Firmware die Achse beim Gehen selbst.",
+    alMode: "Bewegung:", alWalk: "Gehen (10–20 Schritte geradeaus)", alPend: "Pendeln (im Sitzen, Unterschenkel frei hängend)",
+    alS1: "Stillhalten, Unterschenkel senkrecht (Stehen oder Sitzen mit hängendem Bein). Ergibt die Längsachse und den Gyro-Offset.",
+    alStillB: "Stillhalten messen (2 s)",
+    alS2walk: "Mit dem Sensor normal geradeaus gehen, mindestens 10 Schritte.", alS2pend: "Unterschenkel im Sitzen locker vor und zurück pendeln (ca. 10 Mal).",
+    alMoveStart: "Aufnahme starten", alMoveStop: "Aufnahme beenden",
+    alS3: "Richtung prüfen: Taste drücken, dann innerhalb von 3 s den Fuß nach vorn anheben (Knie strecken). Beim Gehen ergibt sich die Richtung meist schon aus dem Gangmuster.",
+    alDirB: "Richtung prüfen (3 s)", alFlip: "Richtung umkehren",
+    alWrite: "Ins Gerät schreiben", alAuto: "Kalibrierung löschen (automatisch)",
+    alLive: "Sagittale Drehrate (Kontrolle)",
+    alLiveHint: "Beim Gehen: große positive Spitzen in der Schwungphase, kurze negative Ausschläge bei Zehenablösung und Fersenauftritt. Sind die großen Spitzen negativ, „Richtung umkehren“.",
+    alNoData: "Keine Messdaten. Erst per Bluetooth oder USB verbinden.",
+    alStillOk: (g, b) => `Schwerkraft ${g} · Gyro-Offset ${b} °/s`, alStillBad: s => `Zu viel Bewegung (σ ${s} °/s), bitte wiederholen.`,
+    alMoveRun: n => `Aufnahme läuft … ${n} Messungen`, alMoveFew: "Zu wenig Bewegung aufgenommen (mind. 3 s mit Drehrate > 30 °/s).",
+    alMoveOk: (r, sk) => `Hauptachse erklärt ${r} % der Drehrate · Verhältnis größte/kleinste Spitze ${sk}`,
+    alDirRun: "Jetzt Fuß nach vorn anheben …", alDirOk: a => `Drehung ${a}° → Richtung übernommen`, alDirWeak: a => `Drehung nur ${a}°, bitte deutlicher wiederholen.`,
+    alNeed: "Schritt 1 und 2 ausführen.",
+    alRes: (ax, r, tilt, src) => `Drehachse y (Sensorkoordinaten): ${ax}\nerklärt ${r} % · Winkel zur Senkrechten ${tilt}° (ideal 90°)\nRichtung: ${src}`,
+    alSrcSkew: "aus dem Gangmuster", alSrcTest: "aus dem Test", alSrcFlip: "manuell umgekehrt", alSrcUnsure: "UNSICHER – bitte Schritt 3 ausführen",
+    alWarnTilt: "Achtung: Die Achse steht nicht quer zum Unterschenkel. Aufnahme wiederholen.",
+    alDevCal: d => `im Gerät: kalibriert (${d})`, alDevAuto: (ax, n) => `im Gerät: automatisch, Achse ${ax}, ${n} Doppelschritte`,
+    alSaved: "# Ausrichtung im Gerät gespeichert", alCleared: "# Ausrichtung im Gerät gelöscht (automatisch)", alErr: m => "Ausrichtung schreiben fehlgeschlagen: " + m,
+    gTitle: "Schritte (Doppelschritte des Beins mit Sensor)", gN: "Doppelschritte", gCad: "Kadenz (Schritte/min)", gStride: "Doppelschritt (s)",
+    gStance: "Standphase (%)", gPeak: "Ferse max. (kg)", gLR: "Loading Response (kg)", gSwing: "Schwungphase (kg)",
+    gAvg: "Mittel über die letzten", gAll: "alle", gLoad: "Gespeicherte vom Gerät laden", gCsv: "CSV herunterladen", gClear: "Liste leeren",
+    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte.",
+    gPhase: "Kraft je Gangphase (Rancho Los Amigos)",
+    gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen.",
+    gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
+    gTable: "Letzte Doppelschritte", gThStride: "Dauer ms", gThStance: "Stand %", gThPeak: "F max", gThMean: "F Stand", gThSw: "F Schw.",
+    gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
+    gClearAsk: "Alle Schritte aus der Liste löschen?", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
   },
   en: {
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
@@ -286,6 +395,40 @@ const TEXT = {
     fwUp: (p, kb) => `Transferring … ${p} % (${kb} kB/s)`, fwSame: "This version is already installed.",
     fwReboot: "Transferred. The board restarts and installs the update (a few seconds), then reconnect.",
     fwErr: m => "Update failed: " + m, fwBusy: "Update running …",
+    tabAlign: "Alignment", tabGait: "Steps",
+    alTitle: "Sensor alignment on the shank",
+    alIntro: "Step detection uses the shank's angular rate in the sagittal plane (positive = foot swings forward). Because the sensor is not mounted exactly aligned, the app determines the rotation axis from a movement (principal axis of the angular rate) and the long axis from gravity. Without calibration the firmware estimates the axis itself while walking.",
+    alMode: "Movement:", alWalk: "Walking (10–20 steps straight ahead)", alPend: "Pendulum (seated, shank hanging freely)",
+    alS1: "Keep still with the shank vertical (standing, or seated with the leg hanging). Gives the long axis and the gyro offset.",
+    alStillB: "Measure still (2 s)",
+    alS2walk: "Walk normally straight ahead with the sensor, at least 10 steps.", alS2pend: "While seated, swing the shank loosely back and forth (about 10 times).",
+    alMoveStart: "Start recording", alMoveStop: "Stop recording",
+    alS3: "Check direction: press the button, then within 3 s lift the foot forward (extend the knee). When walking, the direction usually follows from the gait pattern already.",
+    alDirB: "Check direction (3 s)", alFlip: "Reverse direction",
+    alWrite: "Write to device", alAuto: "Delete calibration (automatic)",
+    alLive: "Sagittal angular rate (check)",
+    alLiveHint: "When walking: large positive peaks in swing, short negative dips at toe-off and initial contact. If the large peaks are negative, press “Reverse direction”.",
+    alNoData: "No data. Connect via Bluetooth or USB first.",
+    alStillOk: (g, b) => `Gravity ${g} · gyro offset ${b} °/s`, alStillBad: s => `Too much movement (σ ${s} °/s), please repeat.`,
+    alMoveRun: n => `Recording … ${n} samples`, alMoveFew: "Not enough movement recorded (at least 3 s with angular rate > 30 °/s).",
+    alMoveOk: (r, sk) => `Principal axis explains ${r} % of the angular rate · ratio of largest/smallest peak ${sk}`,
+    alDirRun: "Lift the foot forward now …", alDirOk: a => `Rotation ${a}° → direction set`, alDirWeak: a => `Only ${a}° rotation, please repeat more clearly.`,
+    alNeed: "Do steps 1 and 2.",
+    alRes: (ax, r, tilt, src) => `Rotation axis y (sensor coordinates): ${ax}\nexplains ${r} % · angle to vertical ${tilt}° (ideal 90°)\nDirection: ${src}`,
+    alSrcSkew: "from the gait pattern", alSrcTest: "from the test", alSrcFlip: "reversed manually", alSrcUnsure: "UNCERTAIN – please do step 3",
+    alWarnTilt: "Warning: the axis is not perpendicular to the shank. Repeat the recording.",
+    alDevCal: d => `in device: calibrated (${d})`, alDevAuto: (ax, n) => `in device: automatic, axis ${ax}, ${n} strides`,
+    alSaved: "# Alignment saved in the device", alCleared: "# Alignment deleted in the device (automatic)", alErr: m => "Writing alignment failed: " + m,
+    gTitle: "Steps (strides of the sensor leg)", gN: "Strides", gCad: "Cadence (steps/min)", gStride: "Stride (s)",
+    gStance: "Stance (%)", gPeak: "Heel max (kg)", gLR: "Loading response (kg)", gSwing: "Swing (kg)",
+    gAvg: "Mean over the last", gAll: "all", gLoad: "Load stored from device", gCsv: "Download CSV", gClear: "Clear list",
+    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides.",
+    gPhase: "Force per gait phase (Rancho Los Amigos)",
+    gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg.",
+    gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
+    gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
+    gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
+    gClearAsk: "Delete all steps from the list?", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
   },
 };
 let lang = localStorage.getItem("feoLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
@@ -300,7 +443,7 @@ function applyLang() {
   $("record").textContent = T(recording ? "recOff" : "recOn");
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
-  fwShowLatest(); showCal();
+  fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
 ["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
@@ -331,6 +474,7 @@ $("ble").onclick = async () => {
     bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
     bleDev.addEventListener("gattserverdisconnected", () => {
       log(T("logBleOff")); bleDev = null; batChr = null; calChr = null; $("calWrite").disabled = true; smpDisconnected();
+      dataChr = frameChr = stepChr = null; streamOn = false; alButtons(); $("gLoad").disabled = true;
       $("ble").textContent = T("bleOn"); setStatus("stIdle");
     });
     setStatus("stBle");
@@ -338,7 +482,7 @@ $("ble").onclick = async () => {
     const svc = await server.getPrimaryService(FEO_SVC);
     const ch = dataChr = await svc.getCharacteristic(FEO_DATA);
     ch.addEventListener("characteristicvaluechanged", e => handlePacket(e.target.value));
-    await ch.startNotifications();
+    streamOn = false; await updateStreaming();   // Rohdaten nur, wenn eine Seite sie braucht
     try {
       const bat = await svc.getCharacteristic(FEO_BAT);
       bat.addEventListener("characteristicvaluechanged", e => { batMv = e.target.value.getUint16(0, true); batT = Date.now(); });
@@ -347,6 +491,7 @@ $("ble").onclick = async () => {
       batChr = bat;
     } catch (e) { log(T("logBleErr", e.message)); }
     try { calChr = await svc.getCharacteristic(FEO_CAL); await calRead(); } catch (e) { calChr = null; }
+    await gaitConnect(svc);
     await smpConnect(server);
     $("ble").textContent = T("bleOff");
     $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
@@ -436,6 +581,7 @@ async function readLoop() {
 
 function handleLine(line) {
   if (!line) return;
+  if (line.startsWith("#S,")) { stepCsv(line); return; }
   if (line.startsWith("#")) { log(line); return; }
   const p = line.split(",");
   if (p.length !== 10) return;
@@ -446,6 +592,8 @@ function handleLine(line) {
   v.push(Math.hypot(v[1], v[2], v[3]), Math.hypot(v[4], v[5], v[6]), r[7], r[8], r[9]);
   if (r[9] > 0) batMv = r[9];
   v.push(fsrKg(r[7]));                 // [12] kg aus der Kalibrierung
+  v.push(sagRate(v));                  // [13] sagittale Drehrate (Ausrichtung)
+  alCollect(v);
   ahrsUpdate(v);
   if (buf.length && v[0] < buf[buf.length - 1][0]) buf.length = 0;   // Board neu gestartet
   buf.push(v);
@@ -459,12 +607,14 @@ $("pause").onclick = () => { paused = !paused; $("pause").textContent = T(paused
 $("record").onclick = () => {
   if (!recording) {
     recording = [];
+    updateStreaming();
     $("record").textContent = T("recOff");
     $("record").classList.add("rec");
   } else {
     const csv = CSV_HEAD + ",ref_kg,kg\n" + recording.join("\n") + "\n";
     const n = recording.length;
     recording = null;
+    updateStreaming();
     $("record").textContent = T("recOn");
     $("record").classList.remove("rec");
     const ts = fileTs();
@@ -618,7 +768,8 @@ async function fwInstall(buf) {
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
   try {
     // Messdaten-Streaming pausieren: die volle Bandbreite gehört dem Upload
-    for (const c of [dataChr, batChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
+    for (const c of [dataChr, batChr, stepChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
+    streamOn = false;
     // größte Schreib-Größe finden, die vollständig ankommt (Echo mit passend langem Text)
     try {
       await smpCall(2, 0, 0, { d: "x".repeat(180 - 14) }, 3000, 180);   // genau 179 Byte, ein Write
@@ -648,9 +799,10 @@ async function fwInstall(buf) {
     if (smpChr) $("fwPick").disabled = false;
   } finally {
     fwBusy = false; prog.hidden = true; fwShowLatest();
+    if (bleDev && bleDev.gatt.connected) updateStreaming();
     // nach einem Fehler Streaming wieder starten (nach Erfolg startet das Board ohnehin neu)
     if (bleDev && bleDev.gatt.connected)
-      for (const c of [dataChr, batChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
+      for (const c of [batChr, stepChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
   }
 }
 
@@ -1126,6 +1278,12 @@ function frame() {
     } else if (page === "cal") {
       drawChart($("fsrc"), [9], 100, ["--f"], true);
       drawCal();
+    } else if (page === "align") {
+      drawChart($("sagc"), [13], 100, ["--z"]);
+      const l = buf[buf.length - 1];
+      $("vsag").textContent = l && Number.isFinite(l[13]) ? fmt(l[13], 0, 5) : "–";
+    } else if (page === "gait") {
+      renderGait();
     }
     const last = buf[buf.length - 1];
     if (last) {
@@ -1148,15 +1306,374 @@ function frame() {
   }
   requestAnimationFrame(frame);
 }
+// ---------- Ausrichtung und Schritte ----------
+// Segment-Koordinatensystem des Unterschenkels (Zeilen von R, je in Sensorkoordinaten):
+// x nach vorn, y nach rechts = Sagittalachse (positive Drehung = Fuß schwingt nach vorn), z nach unten.
+const FEO_FRAME = "7a1e0015-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_STEP = "7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const STEP_LEN = 102, BINS = 20, PHASES = ["IC", "LR", "MSt", "TSt", "PSw", "ISw", "MSw", "TSw"];
+let frameChr = null, stepChr = null, streamOn = false, streamBusy = false;
+let devFrame = null;                    // aus dem Gerät: { R, stamp, axis, bias, count }
+let alDraft = null;                     // neu bestimmte Ausrichtung (noch nicht im Gerät)
+let alSaved = null;                     // zuletzt geschriebene/gelesene Kalibrierung (für USB)
+try { alSaved = JSON.parse(localStorage.getItem("feoAlign")); } catch (e) {}
+let sagAx = null, sagBias = [0, 0, 0];
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm3 = a => { const n = Math.hypot(...a) || 1; return a.map(x => x / n); };
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vecTxt = (a, d = 3) => "(" + a.map(x => x.toFixed(d)).join(", ") + ")";
+
+// Welche Achse gilt für die Anzeige: neuer Entwurf > Kalibrierung im Gerät > gespeicherte > automatische Achse
+function refreshSag() {
+  sagAx = alDraft ? alDraft.R[1] : devFrame && devFrame.stamp ? devFrame.R[1] : alSaved && alSaved.stamp ? alSaved.R[1]
+        : devFrame ? devFrame.axis : null;
+  sagBias = devFrame ? devFrame.bias : alDraft && alDraft.bias ? alDraft.bias : [0, 0, 0];
+}
+function sagRate(v) {
+  if (!sagAx) return NaN;
+  return sagAx[0] * (v[4] - sagBias[0]) + sagAx[1] * (v[5] - sagBias[1]) + sagAx[2] * (v[6] - sagBias[2]);
+}
+
+// Rohdaten-Streaming nur, wenn die Seite es braucht oder eine Aufnahme läuft (spart Akku)
+const needStream = () => !!recording || ["imu", "cal", "align"].includes(page);
+async function updateStreaming() {
+  if (!dataChr || fwBusy || streamBusy) return;
+  const want = needStream();
+  if (want === streamOn) return;
+  streamBusy = true;
+  let ok = true;
+  try { if (want) await dataChr.startNotifications(); else await dataChr.stopNotifications(); streamOn = want; }
+  catch (e) { ok = false; log(T("logBleErr", e.message)); }
+  streamBusy = false;
+  if (ok && needStream() !== streamOn) updateStreaming();
+}
+
+async function gaitConnect(svc) {
+  try { frameChr = await svc.getCharacteristic(FEO_FRAME); await frameRead(); } catch (e) { frameChr = null; }
+  try {
+    stepChr = await svc.getCharacteristic(FEO_STEP);
+    stepChr.addEventListener("characteristicvaluechanged", e => stepPacket(e.target.value));
+    await stepChr.startNotifications();
+    $("gLoad").disabled = false;
+    await stepRequest(false);
+  } catch (e) { stepChr = null; }
+  alButtons();
+}
+async function frameRead() {
+  const dv = await frameChr.readValue(), f = i => dv.getFloat32(4 * i, true);
+  const R = [[f(0), f(1), f(2)], [f(3), f(4), f(5)], [f(6), f(7), f(8)]];
+  devFrame = { R, stamp: dv.getUint32(36, true), axis: [f(10), f(11), f(12)], bias: [f(13), f(14), f(15)],
+               count: dv.byteLength >= 68 ? dv.getUint32(64, true) : 0 };
+  if (devFrame.stamp) { alSaved = { R, stamp: devFrame.stamp }; localStorage.setItem("feoAlign", JSON.stringify(alSaved)); }
+  refreshSag(); alTexts();
+}
+// alle 3 s Status (automatische Achse, Anzahl) nachlesen, solange die Ausrichtungsseite offen ist
+setInterval(() => { if (frameChr && page === "align" && !fwBusy) frameRead().catch(() => {}); }, 3000);
+
+// ----- Kalibrierung der Ausrichtung -----
+let alStill = null, alMove = null, alRec = null, alSign = 1, alSignSrc = "", alDirRec = null;
+function alCollect(v) {
+  if (alRec) { alRec.push([v[4], v[5], v[6]]); if (alRec.length % 50 === 0) $("alMoveR").textContent = T("alMoveRun", alRec.length); }
+  if (alDirRec) alDirRec.push([v[0], v[4], v[5], v[6]]);
+}
+function alButtons() {
+  $("alWrite").disabled = !(frameChr && alDraft);
+  $("alAuto").disabled = !frameChr;
+}
+function alTexts() {
+  $("alS2").textContent = T($("alMode").value === "pend" ? "alS2pend" : "alS2walk");
+  $("alMove").textContent = T(alRec ? "alMoveStop" : "alMoveStart");
+  $("alDev").textContent = !devFrame ? "" : devFrame.stamp ? T("alDevCal", new Date(devFrame.stamp * 1000).toLocaleString())
+    : T("alDevAuto", vecTxt(devFrame.axis, 2), devFrame.count);
+  alBuild();
+}
+$("alMode").onchange = alTexts;
+$("alStill").onclick = () => {
+  if (!buf.length) { $("alStillR").textContent = T("alNoData"); return; }
+  $("alStillR").textContent = "…";
+  setTimeout(() => {
+    const tEnd = buf[buf.length - 1][0], pts = buf.filter(p => p[0] > tEnd - 2000);
+    const m = k => pts.reduce((a, p) => a + p[k], 0) / pts.length;
+    const sd = k => Math.sqrt(pts.reduce((a, p) => a + (p[k] - m(k)) ** 2, 0) / pts.length);
+    const sdMax = Math.max(sd(4), sd(5), sd(6));
+    if (pts.length < 50 || sdMax > 3) { $("alStillR").textContent = T("alStillBad", sdMax.toFixed(1)); return; }
+    alStill = { up: norm3([m(1), m(2), m(3)]), bias: [m(4), m(5), m(6)] };
+    $("alStillR").textContent = T("alStillOk", vecTxt(alStill.up, 2), vecTxt(alStill.bias, 2));
+    alBuild();
+  }, 2000);
+};
+// Hauptachse der Drehrate: Kovarianzmatrix, Eigenvektoren nach Jacobi
+function eigSym3(A) {
+  const a = A.map(r => r.slice()), V = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (let sweep = 0; sweep < 50; sweep++) {
+    let off = 0;
+    for (let p = 0; p < 2; p++) for (let q = p + 1; q < 3; q++) off += a[p][q] ** 2;
+    if (off < 1e-12) break;
+    for (let p = 0; p < 2; p++) for (let q = p + 1; q < 3; q++) {
+      if (Math.abs(a[p][q]) < 1e-15) continue;
+      const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+      const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < 3; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+      for (let k = 0; k < 3; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+      for (let k = 0; k < 3; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+    }
+  }
+  return [0, 1, 2].map(i => ({ val: a[i][i], vec: [V[0][i], V[1][i], V[2][i]] })).sort((x, y) => y.val - x.val);
+}
+$("alMove").onclick = () => {
+  if (!alRec) {
+    if (!buf.length) { $("alMoveR").textContent = T("alNoData"); return; }
+    alRec = []; alTexts(); $("alMoveR").textContent = T("alMoveRun", 0); return;
+  }
+  const bias = alStill ? alStill.bias : [0, 0, 0];
+  const pts = alRec.map(g => g.map((x, i) => x - bias[i])).filter(g => Math.hypot(...g) > 30);
+  alRec = null; alTexts();
+  if (pts.length < 300) { $("alMoveR").textContent = T("alMoveFew"); return; }
+  const C = [0, 1, 2].map(i => [0, 1, 2].map(j => pts.reduce((a, g) => a + g[i] * g[j], 0) / pts.length));
+  const e = eigSym3(C), ax = norm3(e[0].vec), ratio = e[0].val / (e[0].val + e[1].val + e[2].val);
+  // Gehen: die Spitzen der Schwungphase sind deutlich größer als die negativen Ausschläge
+  // bei Zehenablösung und Fersenauftritt -> Verhältnis der Extremwerte (99. / 1. Perzentil)
+  const pr = pts.map(g => dot3(ax, g)).sort((a, b) => a - b);
+  const hiQ = pr[Math.floor(pr.length * 0.99)], loQ = -pr[Math.floor(pr.length * 0.01)];
+  const asym = hiQ / Math.max(loQ, 1);
+  alMove = { ax, ratio, asym };
+  if ($("alMode").value === "walk" && (asym > 1.25 || asym < 0.8)) { alSign = asym > 1 ? 1 : -1; alSignSrc = "alSrcSkew"; }
+  else { alSign = 1; alSignSrc = "alSrcUnsure"; }
+  $("alMoveR").textContent = T("alMoveOk", (ratio * 100).toFixed(0), Math.max(asym, 1 / asym).toFixed(2));
+  alBuild();
+};
+$("alDir").onclick = () => {
+  if (!alMove) { $("alDirR").textContent = T("alNeed"); return; }
+  alDirRec = []; $("alDirR").textContent = T("alDirRun");
+  setTimeout(() => {
+    const pts = alDirRec; alDirRec = null;
+    const bias = alStill ? alStill.bias : [0, 0, 0];
+    let ang = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const dt = (pts[i][0] - pts[i - 1][0]) / 1000;
+      if (dt > 0 && dt < 0.2) ang += dt * dot3(alMove.ax, [pts[i][1] - bias[0], pts[i][2] - bias[1], pts[i][3] - bias[2]]);
+    }
+    if (Math.abs(ang) < 15) { $("alDirR").textContent = T("alDirWeak", Math.abs(ang).toFixed(0)); return; }
+    alSign = ang > 0 ? 1 : -1; alSignSrc = "alSrcTest";
+    $("alDirR").textContent = T("alDirOk", (alSign * ang).toFixed(0));
+    alBuild();
+  }, 3000);
+};
+$("alFlip").onclick = () => {
+  if (alMove) { alSign = -alSign; alSignSrc = "alSrcFlip"; alBuild(); return; }
+  // ohne neue Aufnahme: bestehende Kalibrierung umdrehen (x und y kehren um, z bleibt)
+  const base = devFrame && devFrame.stamp ? devFrame : alSaved && alSaved.stamp ? alSaved : null;
+  if (!base) { $("alDirR").textContent = T("alNeed"); return; }
+  alDraft = { R: [base.R[0].map(x => -x), base.R[1].map(x => -x), base.R[2].slice()], bias: null };
+  $("alRes").textContent = T("alRes", vecTxt(alDraft.R[1]), "–", "–", T("alSrcFlip"));
+  refreshSag(); alButtons();
+};
+function alBuild() {
+  if (!alStill || !alMove) { if (!alDraft) $("alRes").textContent = T("alNeed"); return; }
+  const y = alMove.ax.map(x => alSign * x);
+  let z = alStill.up.map(x => -x);                         // nach unten
+  z = norm3(z.map((zi, i) => zi - dot3(z, y) * y[i]));      // senkrecht zur Drehachse
+  const x = cross3(y, z);
+  alDraft = { R: [x, y, z], bias: alStill.bias };
+  const tilt = Math.acos(Math.min(1, Math.abs(dot3(y, alStill.up)))) * 180 / Math.PI;
+  $("alRes").textContent = T("alRes", vecTxt(y), (alMove.ratio * 100).toFixed(0), tilt.toFixed(0), T(alSignSrc)) +
+    (tilt < 70 ? "\n" + T("alWarnTilt") : "");
+  refreshSag(); alButtons();
+}
+async function frameWrite(R, stamp) {
+  const b = new DataView(new ArrayBuffer(40));
+  R.flat().forEach((v, i) => b.setFloat32(4 * i, v, true));
+  b.setUint32(36, stamp, true);
+  await frameChr.writeValueWithResponse(b.buffer);
+}
+$("alWrite").onclick = async () => {
+  try {
+    await frameWrite(alDraft.R, Math.floor(Date.now() / 1000));
+    alDraft = null; await frameRead(); log(T("alSaved"));
+  } catch (e) { log(T("alErr", e.message)); }
+  alButtons();
+};
+$("alAuto").onclick = async () => {
+  try {
+    await frameWrite([[0, 0, 0], [0, 0, 0], [0, 0, 0]], 0);
+    alDraft = null; alSaved = null; localStorage.removeItem("feoAlign"); await frameRead(); log(T("alCleared"));
+  } catch (e) { log(T("alErr", e.message)); }
+  alButtons();
+};
+
+// ----- Schritte -----
+let steps = [], stepSess = 0, gaitDirty = true;
+const stepKey = s => s.sess + ":" + s.seq, stepKeys = new Set();
+function addStep(s) {
+  const last = steps.length ? steps[steps.length - 1] : null;
+  if (last && last.sess === stepSess && s.seq < last.seq && s.t < last.t) { stepSess++; log(T("gNew")); }
+  s.sess = stepSess;
+  if (stepKeys.has(stepKey(s))) return false;
+  stepKeys.add(stepKey(s));
+  // nach seq sortiert einfügen (nachgeladene ältere Datensätze)
+  let i = steps.length;
+  while (i > 0 && steps[i - 1].sess === s.sess && steps[i - 1].seq > s.seq) i--;
+  steps.splice(i, 0, s);
+  gaitDirty = true;
+  return true;
+}
+function stepPacket(dv) {
+  if (dv.byteLength < STEP_LEN) return;
+  const u = o => dv.getUint16(o, true), i = o => dv.getInt16(o, true), r = [];
+  for (let k = 0; k < BINS + 16; k++) r.push(u(30 + 2 * k) / 100);
+  addStep({ seq: dv.getUint32(0, true), t: dv.getUint32(4, true), stride: u(8), stance: u(10),
+            ms: i(12) / 10, ic: i(14) / 10, to: i(16) / 10, fpk: u(18) / 100, fmean: u(20) / 100, fimp: u(22) / 100,
+            tpk: u(24), fsw: i(26) / 100, flags: u(28), bins: r.slice(0, BINS), phm: r.slice(BINS, BINS + 8), php: r.slice(BINS + 8) });
+  stepLoadCount++;
+}
+function stepCsv(line) {
+  const p = line.split(",").slice(1).map(Number);
+  if (p.length < 13 + BINS + 16 || p.some(Number.isNaN)) return;
+  addStep({ seq: p[0], t: p[1], stride: p[2], stance: p[3], ms: p[4], ic: p[5], to: p[6], fpk: p[7], fmean: p[8], fimp: p[9],
+            tpk: p[10], fsw: p[11], flags: p[12], bins: p.slice(13, 13 + BINS), phm: p.slice(13 + BINS, 21 + BINS), php: p.slice(21 + BINS, 29 + BINS) });
+}
+// fehlende Datensätze anfordern (all = alle im Gerät gespeicherten)
+let stepLoadCount = 0;
+async function stepRequest(all) {
+  if (!stepChr) return;
+  const cur = steps.filter(s => s.sess === stepSess);
+  const lastSeq = cur.length ? cur[cur.length - 1].seq : 0;
+  const devCount = devFrame ? devFrame.count : 0;
+  let from = all ? 1 : lastSeq + 1;
+  if (devCount && devCount < lastSeq) { stepSess++; log(T("gNew")); from = 1; }    // Gerät neu gestartet
+  const b = new DataView(new ArrayBuffer(4)); b.setUint32(0, from, true);
+  stepLoadCount = 0;
+  await stepChr.writeValueWithResponse(b.buffer);
+  setTimeout(() => { if (stepLoadCount) log(T("gLoaded", stepLoadCount)); }, 4000);
+}
+$("gLoad").onclick = () => stepRequest(true).catch(e => log(T("logBleErr", e.message)));
+$("gClear").onclick = () => { if (confirm(T("gClearAsk"))) { steps = []; stepKeys.clear(); gaitDirty = true; } };
+$("gSel").onchange = () => { gaitDirty = true; };
+$("gCsv").onclick = () => {
+  const head = ["series", "seq", "t_ic_ms", "stride_ms", "stance_ms", "ms_dps", "ic_dps", "to_dps", "f_peak_kg", "f_mean_kg", "f_imp_kgs",
+    "t_fpeak_ms", "f_swing_kg", "flags", ...Array.from({ length: BINS }, (_, i) => "f_" + (i * 100 / BINS) + "pct"),
+    ...PHASES.map(p => p + "_mean_kg"), ...PHASES.map(p => p + "_max_kg")].join(",");
+  const rows = steps.map(s => [s.sess, s.seq, s.t, s.stride, s.stance, s.ms, s.ic, s.to, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags,
+    ...s.bins, ...s.phm, ...s.php].join(","));
+  log(T("logSaved", steps.length, download(head + "\n" + rows.join("\n") + "\n", `feo_schritte_${fileTs()}.csv`)));
+};
+// Phasengrenzen wie in der Firmware (src/gait.c), in Messungen ab IC
+function phaseBounds(L, Tt) {
+  const half = Math.floor(L / 2), ic = Math.max(Math.floor((L + 25) / 50), 1), ds = Tt > half ? Tt - half : 0;
+  const ss = Math.min(half, Tt), sw = L - Tt, b = [0, Math.min(ic, Tt)];
+  b.push(Math.max(ds, b[1])); b.push(Math.max(Math.floor((b[2] + ss) / 2), b[2])); b.push(Math.max(ss, b[3]));
+  b.push(Tt, Tt + Math.floor(sw / 3), Tt + Math.floor(2 * sw / 3), L);
+  return b;
+}
+const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
+const sdev = a => { const m = mean(a); return a.length > 1 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)) : 0; };
+function selSteps() { const n = Number($("gSel").value); return n ? steps.slice(-n) : steps; }
+function canvasCtx(c) {
+  const dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
+  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.font = "11px -apple-system, sans-serif"; ctx.lineWidth = 1;
+  return [ctx, W, H];
+}
+function yAxis(ctx, L, R, W, Y, hi, unit) {
+  ctx.fillStyle = css("--muted"); ctx.strokeStyle = css("--grid"); ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  const st = niceStep(hi);
+  for (let v = 0; v <= hi + 1e-9; v += st) {
+    const y = Math.round(Y(v)) + .5; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
+    ctx.fillText(+v.toFixed(2) + (v === 0 ? "" : unit), L - 6, y);
+  }
+}
+function drawPhases(sel) {
+  const [ctx, W, H] = canvasCtx($("gPh")), L = 48, R = 8, Tp = 8, B = 20, pw = W - L - R, ph = H - Tp - B;
+  const m = PHASES.map((_, p) => mean(sel.map(s => s.phm[p]))), sd = PHASES.map((_, p) => sdev(sel.map(s => s.phm[p])));
+  const pk = PHASES.map((_, p) => mean(sel.map(s => s.php[p])));
+  const hi = Math.max(1, ...pk.filter(Number.isFinite), ...m.map((x, i) => x + sd[i]).filter(Number.isFinite)) * 1.1;
+  const Y = v => Tp + (1 - v / hi) * ph, bw = pw / PHASES.length;
+  yAxis(ctx, L, R, W, Y, hi, "");
+  const col = css("--f");
+  PHASES.forEach((name, p) => {
+    const x0 = L + p * bw + bw * 0.2, w = bw * 0.6;
+    ctx.fillStyle = css("--muted"); ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(name, x0 + w / 2, H - B + 4);
+    if (!Number.isFinite(m[p])) return;
+    ctx.fillStyle = col; ctx.globalAlpha = p < 5 ? 0.85 : 0.4; ctx.fillRect(x0, Y(m[p]), w, Y(0) - Y(m[p])); ctx.globalAlpha = 1;
+    ctx.strokeStyle = css("--fg"); ctx.beginPath(); ctx.moveTo(x0 + w / 2, Y(Math.max(0, m[p] - sd[p]))); ctx.lineTo(x0 + w / 2, Y(m[p] + sd[p])); ctx.stroke();
+    ctx.fillStyle = css("--x"); ctx.beginPath(); ctx.arc(x0 + w / 2, Y(pk[p]), 3.5, 0, 2 * Math.PI); ctx.fill();
+  });
+}
+function drawCycle(sel) {
+  const [ctx, W, H] = canvasCtx($("gCyc")), L = 48, R = 8, Tp = 16, B = 20, pw = W - L - R, ph = H - Tp - B;
+  const m = [...Array(BINS).keys()].map(b => mean(sel.map(s => s.bins[b]))), sd = [...Array(BINS).keys()].map(b => sdev(sel.map(s => s.bins[b])));
+  const hi = Math.max(1, ...m.map((x, i) => x + sd[i]).filter(Number.isFinite)) * 1.1;
+  const X = pct => L + pct / 100 * pw, Y = v => Tp + (1 - v / hi) * ph;
+  yAxis(ctx, L, R, W, Y, hi, "");
+  // Phasengrenzen (Mittel der gewählten Schritte)
+  if (sel.length) {
+    const Ls = mean(sel.map(s => s.stride)) / 10, Ts = mean(sel.map(s => s.stance)) / 10;
+    const b = phaseBounds(Math.round(Ls), Math.round(Ts)).map(x => x / Math.round(Ls) * 100);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    PHASES.forEach((name, p) => {
+      ctx.strokeStyle = css(p === 5 ? "--fg" : "--grid"); ctx.setLineDash(p === 5 ? [] : [3, 3]);
+      ctx.beginPath(); ctx.moveTo(X(b[p]) + .5, Tp); ctx.lineTo(X(b[p]) + .5, H - B); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = css("--muted"); if (p) ctx.fillText(name, (X(b[p]) + X(b[p + 1])) / 2, 2);
+    });
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = css("--muted");
+  for (let pct = 0; pct <= 100; pct += 20) ctx.fillText(pct + " %", Math.min(X(pct), W - 16), H - B + 4);
+  if (!sel.length) return;
+  const xc = b => X((b + 0.5) * 100 / BINS), col = css("--f");
+  ctx.fillStyle = col; ctx.globalAlpha = 0.18; ctx.beginPath();
+  m.forEach((v, b) => b ? ctx.lineTo(xc(b), Y(v + sd[b])) : ctx.moveTo(xc(b), Y(v + sd[b])));
+  for (let b = BINS - 1; b >= 0; b--) ctx.lineTo(xc(b), Y(Math.max(0, m[b] - sd[b])));
+  ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+  m.forEach((v, b) => b ? ctx.lineTo(xc(b), Y(v)) : ctx.moveTo(xc(b), Y(v))); ctx.stroke();
+}
+function drawTrend() {
+  const [ctx, W, H] = canvasCtx($("gTr")), L = 48, R = 8, Tp = 8, B = 20, pw = W - L - R, ph = H - Tp - B;
+  const pts = steps.slice(-300), hi = Math.max(1, ...pts.map(s => s.fpk)) * 1.1;
+  const X = i => L + (pts.length > 1 ? i / (pts.length - 1) : 0.5) * pw, Y = v => Tp + (1 - v / hi) * ph;
+  yAxis(ctx, L, R, W, Y, hi, "");
+  ctx.fillStyle = css("--muted"); ctx.textAlign = "center"; ctx.textBaseline = "top";
+  if (pts.length) { ctx.fillText("#" + pts[0].seq, L + 12, H - B + 4); ctx.fillText("#" + pts[pts.length - 1].seq, W - R - 14, H - B + 4); }
+  [["fpk", "--f"], ["lr", "--z"]].forEach(([k, c]) => {
+    ctx.strokeStyle = css(c); ctx.lineWidth = 1.5; ctx.beginPath();
+    pts.forEach((s, i) => { const v = k === "lr" ? s.phm[1] : s[k]; i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); });
+    ctx.stroke();
+  });
+}
+function renderGait() {
+  $("gSrc").textContent = T(bleDev && stepChr ? "gSrcBle" : port ? "gSrcUsb" : "gSrcNone");
+  if (!gaitDirty) return;
+  gaitDirty = false;
+  const sel = selSteps(), f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
+  const str = mean(sel.map(s => s.stride));
+  $("gtN").textContent = steps.length;
+  $("gtCad").textContent = f(120000 / str, 0);
+  $("gtStride").textContent = f(str / 1000, 2);
+  $("gtStance").textContent = f(mean(sel.map(s => 100 * s.stance / s.stride)), 0);
+  $("gtPeak").textContent = f(mean(sel.map(s => s.fpk)), 1);
+  $("gtLR").textContent = f(mean(sel.map(s => s.phm[1])), 1);
+  $("gtSwing").textContent = f(mean(sel.map(s => s.fsw)), 2);
+  drawPhases(sel); drawCycle(sel); drawTrend();
+  $("gTb").innerHTML = steps.slice(-30).reverse().map(s =>
+    `<tr><td>${s.seq}</td><td>${(s.t / 1000).toFixed(1)}</td><td>${s.stride}</td><td>${(100 * s.stance / s.stride).toFixed(0)}</td>` +
+    `<td>${s.ms.toFixed(0)}</td><td>${s.fpk.toFixed(1)}</td><td>${s.fmean.toFixed(1)}</td>` +
+    s.phm.slice(1, 5).map(x => `<td>${x.toFixed(1)}</td>`).join("") + `<td>${s.fsw.toFixed(2)}</td>` +
+    `<td title="flags">${s.flags & 1 ? "⚠" : ""}${s.flags & 2 ? "" : "auto"}</td></tr>`).join("");
+}
+window.addEventListener("resize", () => { gaitDirty = true; });
+refreshSag();
+
 // ---------- Seiten (Tabs) ----------
 let page = "imu";
 function setPage(p) {
-  if (!["imu", "cal", "fw"].includes(p)) p = "imu";
+  if (!["imu", "cal", "align", "gait", "fw"].includes(p)) p = "imu";
   page = p;
   document.body.dataset.page = p;
   document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.page === p));
   try { localStorage.setItem("feo-page", p); } catch (e) {}
   if (location.hash !== "#" + p) history.replaceState(null, "", "#" + p);
+  updateStreaming(); gaitDirty = true;
 }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => setPage(b.dataset.page));
 window.addEventListener("hashchange", () => setPage(location.hash.slice(1)));
