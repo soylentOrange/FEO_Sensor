@@ -464,7 +464,7 @@ const TEXT = {
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
     gTable: "Letzte Doppelschritte", gThStride: "Dauer ms", gThStance: "Stand %", gThPeak: "F max", gThMean: "F Stand", gThSw: "F Schw.",
     gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
-    gClearAsk: "Alle Schritte aus der Liste löschen?", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
+    gClearAsk: "Alle Schritte aus der Liste löschen? Beim nächsten Verbinden werden sie nicht wieder geladen; der Zähler im Gerät beginnt erst nach dem Aus- und Einschalten wieder bei 0.", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
     tabLog: "Dauermessung", dlTitle: "Dauermessung im Gerät", dlStateL: "Zustand", dlMemL: "Speicher belegt", dlDaysL: "Platz für ≈ Tage",
     dlClockL: "Uhrzeit im Gerät", dlSessL: "Laufende Messung:", dlPseudoL: "Pseudonym", dlSideL: "Seite", dlThrL: "Schwelle (kg)",
     dlLeft: "links", dlRight: "rechts", dlSideNone: "nicht angegeben", dlEraseFirstL: "Speicher vorher löschen",
@@ -577,7 +577,7 @@ const TEXT = {
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
     gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
     gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
-    gClearAsk: "Delete all steps from the list?", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
+    gClearAsk: "Delete all steps from the list? They are not loaded again on the next connect; the counter in the device only restarts at 0 after switching it off and on.", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
     tabLog: "Long-term", dlTitle: "Long-term measurement in the device", dlStateL: "State", dlMemL: "Memory used", dlDaysL: "Room for ≈ days",
     dlClockL: "Device clock", dlSessL: "Running measurement:", dlPseudoL: "Pseudonym", dlSideL: "Side", dlThrL: "Threshold (kg)",
     dlLeft: "left", dlRight: "right", dlSideNone: "not specified", dlEraseFirstL: "Erase memory first",
@@ -1739,8 +1739,9 @@ async function stepRequest(all) {
   if (!stepChr) return;
   const cur = steps.filter(s => s.sess === stepSess);
   const lastSeq = cur.length ? cur[cur.length - 1].seq : 0;
-  const devCount = devFrame ? devFrame.count : 0;
-  let from = all ? 1 : lastSeq + 1;
+  const devCount = devSt ? devSt.strides : devFrame ? devFrame.count : 0;
+  if (devCount && devCount < stepFloor) stepFloor = 0;                            // device restarted after "clear list"
+  let from = all ? 1 : Math.max(lastSeq, stepFloor) + 1;
   if (devCount && devCount < lastSeq) { stepSess++; log(T("gNew")); from = 1; }    // Gerät neu gestartet
   const b = new DataView(new ArrayBuffer(4)); b.setUint32(0, from, true);
   stepLoadCount = 0;
@@ -1748,7 +1749,13 @@ async function stepRequest(all) {
   setTimeout(() => { if (stepLoadCount) log(T("gLoaded", stepLoadCount)); }, 4000);
 }
 $("gLoad").onclick = () => stepRequest(true).catch(e => log(T("logBleErr", e.message)));
-$("gClear").onclick = () => { if (confirm(T("gClearAsk"))) { steps = []; stepKeys.clear(); gaitDirty = true; } };
+// "Clear list" also skips the strides the device still holds when reconnecting ("Load stored" still gets them)
+let stepFloor = 0;
+$("gClear").onclick = () => {
+  if (!confirm(T("gClearAsk"))) return;
+  stepFloor = Math.max(devSt ? devSt.strides : 0, ...steps.filter(s => s.sess === stepSess).map(s => s.seq), 0);
+  steps = []; stepKeys.clear(); gaitDirty = true;
+};
 $("gSel").onchange = () => { gaitDirty = true; };
 $("gCsv").onclick = () => {
   const head = ["series", "seq", "t_ic_ms", "stride_ms", "stance_ms", "ms_dps", "ic_dps", "to_dps", "f_peak_kg", "f_mean_kg", "f_imp_kgs",
