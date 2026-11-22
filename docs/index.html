@@ -54,6 +54,12 @@
   .cal .tbl { max-height: 11em; overflow: auto; }
   .bat-low { color: var(--x); }
   .fcard { align-self: start; }
+  .badge { font: 600 13px ui-monospace, Menlo, monospace; padding: 4px 10px; border-radius: 12px;
+           border: 1px solid var(--grid); background: var(--card); white-space: nowrap; }
+  .badge.bat-low { border-color: var(--x); }
+  .fw .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
+  .fw progress { width: 100%; height: 10px; }
+  .fw b { font: 600 12px ui-monospace, Menlo, monospace; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
   @media (max-width: 600px) {
     header { padding: 10px 10px; gap: 8px; } h1 { flex: 1; order: 0; } .lang { order: 1; }
@@ -91,6 +97,7 @@
   </label>
   <button id="pause" disabled></button>
   <span id="status"></span>
+  <span id="batBadge" class="badge" hidden></span>
   <span class="spacer"></span>
   <span class="lang"><button id="lang-de">DE</button><button id="lang-en">EN</button></span>
 </header>
@@ -142,6 +149,16 @@
       <tbody id="calt"></tbody></table></div>
     <div class="hint" data-i18n="calHint"></div>
   </div>
+  <div class="card fw logc">
+    <h2><span data-i18n="fw"></span> <span><span data-i18n="fwInst"></span> <b id="fwver">–</b></span></h2>
+    <div class="row">
+      <button id="fwLatest" disabled hidden></button>
+      <button id="fwPick" disabled data-i18n="fwPick"></button>
+      <input id="fwFile" type="file" accept=".bin,application/octet-stream" hidden>
+      <span id="fwState" class="hint"></span>
+    </div>
+    <progress id="fwProg" max="1" value="0" hidden></progress>
+  </div>
   <div class="card logc"><div id="log"></div></div>
 </main>
 <footer><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
@@ -181,6 +198,13 @@ const TEXT = {
     calAsk: "Alle Kalibrierpunkte löschen?",
     calHint: "Gewicht auflegen, ruhig halten, Gewicht eintragen und „Messpunkt übernehmen“. Die Punkte bleiben im Browser gespeichert. Die laufende Aufnahme oben enthält zusätzlich das eingetragene Referenzgewicht in jeder Zeile.",
     logCal: (k, m, s) => `# Messpunkt ${k} kg: ${m} mV (σ ${s} mV)`,
+    fw: "Firmware-Update (Bluetooth)", fwInst: "installiert:", fwPick: "Update-Datei wählen …",
+    fwLatest: v => `Neueste Version ${v} installieren`, fwNoSmp: "Diese Firmware hat keine Update-Funktion (einmal per USB mit der Erstinstallations-Datei flashen).",
+    fwBad: "Keine gültige Update-Datei (MCUboot-Image *_update.bin erwartet).",
+    fwAsk: (v, c) => `Firmware ${v} auf das Board übertragen? Installiert ist ${c}. Das Board startet danach neu.`,
+    fwUp: (p, kb) => `Übertrage … ${p} % (${kb} kB/s)`, fwSame: "Diese Version ist bereits installiert.",
+    fwReboot: "Übertragen. Board startet neu und installiert das Update (einige Sekunden), dann neu verbinden.",
+    fwErr: m => "Update fehlgeschlagen: " + m, fwBusy: "Update läuft …",
   },
   en: {
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
@@ -205,6 +229,13 @@ const TEXT = {
     calAsk: "Delete all calibration points?",
     calHint: "Place the weight, keep still, enter the weight and press “Add point”. Points are kept in the browser. The recording above also contains the entered reference weight in every row.",
     logCal: (k, m, s) => `# Point ${k} kg: ${m} mV (σ ${s} mV)`,
+    fw: "Firmware update (Bluetooth)", fwInst: "installed:", fwPick: "Choose update file …",
+    fwLatest: v => `Install latest version ${v}`, fwNoSmp: "This firmware has no update function (flash the initial-install file once via USB).",
+    fwBad: "Not a valid update file (MCUboot image *_update.bin expected).",
+    fwAsk: (v, c) => `Transfer firmware ${v} to the board? Installed: ${c}. The board restarts afterwards.`,
+    fwUp: (p, kb) => `Transferring … ${p} % (${kb} kB/s)`, fwSame: "This version is already installed.",
+    fwReboot: "Transferred. The board restarts and installs the update (a few seconds), then reconnect.",
+    fwErr: m => "Update failed: " + m, fwBusy: "Update running …",
   },
 };
 let lang = localStorage.getItem("feoLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
@@ -219,6 +250,7 @@ function applyLang() {
   $("record").textContent = T(recording ? "recOff" : "recOn");
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
+  fwShowLatest();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
 ["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
@@ -240,13 +272,14 @@ const SAMPLE_MS = 10;
 const RANGES_MV = [900, 1800, 3600];   // Messbereich je nach SAADC-Gain 1, 1/2, 1/4
 let bleDev = null;
 let batMv = 0;                         // letzte Akkuspannung (mV), 0 = unbekannt
+let batChr = null, batT = 0;           // Akku-Characteristic, Zeitpunkt des letzten Werts
 
 $("ble").onclick = async () => {
   if (bleDev) { bleDev.gatt.disconnect(); return; }
   try {
-    bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }] });
+    bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
     bleDev.addEventListener("gattserverdisconnected", () => {
-      log(T("logBleOff")); bleDev = null;
+      log(T("logBleOff")); bleDev = null; batChr = null; smpDisconnected();
       $("ble").textContent = T("bleOn"); setStatus("stIdle");
     });
     setStatus("stBle");
@@ -257,10 +290,12 @@ $("ble").onclick = async () => {
     await ch.startNotifications();
     try {
       const bat = await svc.getCharacteristic(FEO_BAT);
-      bat.addEventListener("characteristicvaluechanged", e => { batMv = e.target.value.getUint16(0, true); });
-      batMv = (await bat.readValue()).getUint16(0, true);
+      bat.addEventListener("characteristicvaluechanged", e => { batMv = e.target.value.getUint16(0, true); batT = Date.now(); });
+      batMv = (await bat.readValue()).getUint16(0, true); batT = Date.now();
       await bat.startNotifications();
+      batChr = bat;
     } catch (e) { log(T("logBleErr", e.message)); }
+    await smpConnect(server);
     $("ble").textContent = T("bleOff");
     $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
     log(T("logBleOn", bleDev.name || "XIAO-FEO"));
@@ -395,6 +430,173 @@ function download(text, name) {
   return name;
 }
 
+// ---------- Firmware-Update über Bluetooth (MCUmgr / SMP, MCUboot) ----------
+const SMP_SVC = "8d53dc1d-1db7-4cd3-868b-8a527460aa84";
+const SMP_CHR = "da2e7828-fbce-4e01-ae9e-261174997c48";
+const SMP_FRAG = 180;     // Bytes pro BLE-Schreibvorgang (Firmware setzt SMP-Pakete wieder zusammen)
+const SMP_DATA = 384;     // Image-Bytes pro SMP-Paket (Puffer in der Firmware: 512)
+let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwInstalled = null, fwLatestInfo = null;
+
+// --- minimales CBOR (nur was SMP braucht) ---
+function cborEnc(v) {
+  const out = [];
+  const head = (mt, n) => {
+    if (n < 24) out.push(mt << 5 | n);
+    else if (n < 256) out.push(mt << 5 | 24, n);
+    else if (n < 65536) out.push(mt << 5 | 25, n >> 8, n & 255);
+    else out.push(mt << 5 | 26, n >>> 24, n >> 16 & 255, n >> 8 & 255, n & 255);
+  };
+  const enc = x => {
+    if (x === true || x === false) out.push(x ? 0xf5 : 0xf4);
+    else if (typeof x === "number") { if (x >= 0) head(0, x); else head(1, -1 - x); }
+    else if (typeof x === "string") { const b = new TextEncoder().encode(x); head(3, b.length); out.push(...b); }
+    else if (x instanceof Uint8Array) { head(2, x.length); for (const b of x) out.push(b); }
+    else if (Array.isArray(x)) { head(4, x.length); x.forEach(enc); }
+    else { const k = Object.keys(x); head(5, k.length); k.forEach(key => { enc(key); enc(x[key]); }); }
+  };
+  enc(v);
+  return new Uint8Array(out);
+}
+function cborDec(buf) {
+  let i = 0;
+  const len = ai => ai < 24 ? ai : ai === 24 ? buf[i++] : ai === 25 ? (i += 2, buf[i - 2] << 8 | buf[i - 1])
+    : ai === 26 ? (i += 4, ((buf[i - 4] << 24) >>> 0) + (buf[i - 3] << 16 | buf[i - 2] << 8 | buf[i - 1])) : -1;
+  const dec = () => {
+    const b = buf[i++], mt = b >> 5, ai = b & 31;
+    if (mt === 7) return ai === 21 ? true : ai === 20 ? false : null;
+    const n = ai === 31 ? -1 : len(ai);
+    if (mt === 0) return n;
+    if (mt === 1) return -1 - n;
+    if (mt === 2) { const r = buf.slice(i, i + n); i += n; return r; }
+    if (mt === 3) { const r = new TextDecoder().decode(buf.slice(i, i + n)); i += n; return r; }
+    if (mt === 4 || mt === 5) {
+      const r = mt === 4 ? [] : {};
+      for (let k = 0; n < 0 ? buf[i] !== 0xff : k < n; k++) { if (mt === 4) r.push(dec()); else { const key = dec(); r[key] = dec(); } }
+      if (n < 0) i++;
+      return r;
+    }
+    if (mt === 6) return dec();   // Tag ignorieren
+    throw new Error("CBOR");
+  };
+  return dec();
+}
+
+// --- SMP-Rahmen: op, flags, len (BE), group (BE), seq, id + CBOR ---
+async function smpCall(op, group, id, body, timeout = 5000) {
+  const payload = cborEnc(body), seq = smpSeq = (smpSeq + 1) & 255;
+  const pkt = new Uint8Array(8 + payload.length);
+  pkt.set([op, 0, payload.length >> 8, payload.length & 255, group >> 8, group & 255, seq, id]);
+  pkt.set(payload, 8);
+  const resp = new Promise((resolve, reject) => {
+    smpWait = { seq, resolve, reject, timer: setTimeout(() => { smpWait = null; reject(new Error("Timeout")); }, timeout) };
+  });
+  for (let o = 0; o < pkt.length; o += SMP_FRAG) await smpChr.writeValueWithoutResponse(pkt.slice(o, o + SMP_FRAG));
+  const r = await resp;
+  if (r.rc) throw new Error("SMP rc " + r.rc);
+  if (r.err && r.err.rc) throw new Error("SMP err " + r.err.group + "/" + r.err.rc);
+  return r;
+}
+function smpNotify(dv) {
+  const b = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+  smpRx = smpRx ? Uint8Array.from([...smpRx, ...b]) : Uint8Array.from(b);
+  if (smpRx.length < 8) return;
+  const need = 8 + (smpRx[2] << 8 | smpRx[3]);
+  if (smpRx.length < need) return;
+  const seq = smpRx[6], body = smpRx.slice(8, need);
+  smpRx = null;
+  if (smpWait && smpWait.seq === seq) {
+    const w = smpWait; smpWait = null; clearTimeout(w.timer);
+    try { w.resolve(cborDec(body)); } catch (e) { w.reject(e); }
+  }
+}
+
+const verStr = v => v || "?";
+async function smpConnect(server) {
+  smpChr = null; fwInstalled = null; $("fwver").textContent = "–";
+  try {
+    smpChr = await (await server.getPrimaryService(SMP_SVC)).getCharacteristic(SMP_CHR);
+    smpChr.addEventListener("characteristicvaluechanged", e => smpNotify(e.target.value));
+    await smpChr.startNotifications();
+    const st = await smpCall(0, 1, 0, {});
+    const act = (st.images || []).find(im => im.active) || (st.images || [])[0];
+    fwInstalled = act ? act.version : null;
+    $("fwver").textContent = act ? `${verStr(act.version)}${act.confirmed ? "" : " (Test)"}` : "?";
+    $("fwPick").disabled = false; fwShowLatest();
+  } catch (e) {
+    smpChr = null; $("fwver").textContent = "–"; $("fwState").textContent = T("fwNoSmp");
+  }
+}
+function smpDisconnected() {
+  smpChr = null;
+  if (smpWait) { clearTimeout(smpWait.timer); smpWait.reject(new Error("getrennt")); smpWait = null; }
+  $("fwPick").disabled = true; $("fwLatest").disabled = true;
+}
+
+// MCUboot-Image prüfen: Magic, Version und SHA-256 aus den TLVs
+function parseImage(buf) {
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  if (buf.length < 32 || dv.getUint32(0, true) !== 0x96f3b83d) return null;
+  const hdr = dv.getUint16(8, true), size = dv.getUint32(12, true);
+  const version = `${dv.getUint8(20)}.${dv.getUint8(21)}.${dv.getUint16(22, true)}`;
+  let o = hdr + size, hash = null;
+  if (o + 4 <= buf.length && dv.getUint16(o, true) === 0x6908) o += dv.getUint16(o + 2, true);   // geschützte TLVs
+  if (o + 4 > buf.length || dv.getUint16(o, true) !== 0x6907) return null;
+  const end = o + dv.getUint16(o + 2, true);
+  for (o += 4; o + 4 <= end; o += 4 + dv.getUint16(o + 2, true))
+    if (dv.getUint8(o) === 0x10) hash = buf.slice(o + 4, o + 4 + dv.getUint16(o + 2, true));
+  return hash ? { version, hash } : null;
+}
+
+async function fwInstall(buf) {
+  const img = parseImage(buf);
+  if (!img) { $("fwState").textContent = T("fwBad"); return; }
+  const cur = fwInstalled ? verStr(fwInstalled) : "?";
+  if (cur === img.version && !confirm(T("fwSame") + "\n\n" + T("fwAsk", img.version, cur))) return;
+  if (cur !== img.version && !confirm(T("fwAsk", img.version, cur))) return;
+  fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
+  const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
+  const t0 = performance.now();
+  try {
+    let off = 0;
+    while (off < buf.length) {
+      const body = { image: 0, off, data: buf.slice(off, off + SMP_DATA) };
+      if (off === 0) body.len = buf.length;
+      const r = await smpCall(2, 1, 1, body, 15000);   // erster Block löscht Slot 1, dauert länger
+      off = typeof r.off === "number" ? r.off : off + body.data.length;
+      prog.value = off / buf.length;
+      const kbs = (off / 1024 / ((performance.now() - t0) / 1000)).toFixed(1);
+      $("fwState").textContent = T("fwUp", Math.round(prog.value * 100), kbs);
+    }
+    await smpCall(2, 1, 0, { hash: img.hash, confirm: false });   // beim nächsten Start testen
+    $("fwState").textContent = T("fwReboot"); log("# " + T("fwReboot"));
+    try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* Board trennt beim Neustart */ }
+  } catch (e) {
+    $("fwState").textContent = T("fwErr", e.message); log(T("fwErr", e.message));
+    if (smpChr) $("fwPick").disabled = false;
+  } finally { fwBusy = false; prog.hidden = true; fwShowLatest(); }
+}
+
+$("fwPick").onclick = () => $("fwFile").click();
+$("fwFile").onchange = async () => {
+  const f = $("fwFile").files[0]; $("fwFile").value = "";
+  if (f) fwInstall(new Uint8Array(await f.arrayBuffer()));
+};
+// Neueste Version von derselben Adresse (GitHub Pages: fw/latest.json, wird von der Release-Action veröffentlicht)
+function fwShowLatest() {
+  const b = $("fwLatest");
+  b.hidden = !fwLatestInfo; b.disabled = !smpChr || fwBusy;
+  if (fwLatestInfo) b.textContent = T("fwLatest", fwLatestInfo.version);
+}
+if (location.protocol.startsWith("http"))
+  fetch("fw/latest.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => { fwLatestInfo = j; fwShowLatest(); }).catch(() => {});
+$("fwLatest").onclick = async () => {
+  try {
+    const r = await fetch("fw/" + fwLatestInfo.file, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    fwInstall(new Uint8Array(await r.arrayBuffer()));
+  } catch (e) { $("fwState").textContent = T("fwErr", e.message); }
+};
+
 // ---------- Kalibrierung Kraft – Spannung ----------
 // Referenzgewicht als Text (Punkt als Dezimaltrenner), leer wenn nicht eingetragen
 const refKgText = () => { const k = parseFloat($("refkg").value); return Number.isFinite(k) ? String(k) : ""; };
@@ -465,6 +667,12 @@ function drawCal() {
     ctx.beginPath(); ctx.arc(X(p.kg), Y(p.mean), 3.5, 0, 2 * Math.PI); ctx.fill();
   });
 }
+
+// Falls keine Akku-Notifications ankommen: alle 5 s selbst lesen
+setInterval(async () => {
+  if (!batChr || fwBusy || Date.now() - batT < 4000) return;
+  try { batMv = (await batChr.readValue()).getUint16(0, true); batT = Date.now(); } catch (e) {}
+}, 5000);
 
 // Akku: grobe Ladezustandsschätzung für LiPo (Ruhespannung, beim Laden zu hoch)
 function batPercent(mv) {
@@ -775,6 +983,10 @@ function frame() {
     $("vavg").textContent = st ? `${st.mean.toFixed(1)} mV (σ ${st.sd.toFixed(1)}, n ${st.n})` : "–";
     $("vbat").textContent = batMv ? `${(batMv / 1000).toFixed(2)} V (~${batPercent(batMv).toFixed(0)} %)` : "–";
     $("vbat").classList.toggle("bat-low", batMv > 0 && batMv < 3500);
+    const bb = $("batBadge");
+    bb.hidden = !batMv;
+    if (batMv) bb.textContent = `🔋 ${batPercent(batMv).toFixed(0)} % · ${(batMv / 1000).toFixed(2)} V`;
+    bb.classList.toggle("bat-low", batMv > 0 && batMv < 3500);
   }
   requestAnimationFrame(frame);
 }

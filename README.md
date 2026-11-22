@@ -69,6 +69,26 @@ Voltages are reported in mV at the pin, including the ~0.1 V reference offset of
 
 ## Firmware
 
+### Firmware Updates over Bluetooth (OTA)
+
+Release builds contain the **MCUboot** bootloader and an **MCUmgr/SMP** service, so new firmware can be installed from the web app without a cable.
+
+1. **Once, via USB:** flash `feo_sensor_vX.Y.Z_erstinstallation.hex` (MCUboot + firmware) from a [release](../../releases), e.g.
+   ```bash
+   pyocd flash -t nrf54l feo_sensor_v1.0.0_erstinstallation.hex
+   ```
+   (pyOCD comes with PlatformIO: `~/.platformio/penv/bin/pyocd`; `pip install pyocd` also works.)
+2. **Later updates:** connect the web app via Bluetooth. The *Firmware update* card shows the installed version. Choose `feo_sensor_vX.Y.Z_update.bin` from the release (or press *Install latest version* when the app is served via GitHub Pages, see below). The app uploads the image, the board restarts, MCUboot swaps the images, and the new firmware confirms itself once IMU, ADC and Bluetooth are running. If it does not get that far, MCUboot restores the previous version on the next reset.
+
+**Making a release:** push a tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. The workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) builds with Zephyr 4.4.2 and sysbuild ([`west.yml`](west.yml), [`zephyr/sysbuild.conf`](zephyr/sysbuild.conf), [`zephyr/ota.conf`](zephyr/ota.conf)) and attaches both files to the release. *Run workflow* without a tag only builds (artifacts).
+
+**Automatic download in the app (optional):** browsers cannot download release assets directly (no CORS, and the repository is private). If the app is served via GitHub Pages (public repository or a paid plan), set the repository variable `DEPLOY_PAGES` to `true` and the Pages source to *GitHub Actions*. Each release then publishes the web app together with `fw/latest.json` and the update file, and the app offers *Install latest version*.
+
+> [!WARNING]
+> Without the secret `MCUBOOT_SIGNING_KEY` (PEM, e.g. `imgtool keygen -k key.pem -t ecdsa-p256`), images are signed with MCUboot's public test key, so anyone could install firmware via Bluetooth. Fine for the prototype; set your own key before the board goes to patients. Changing the key later requires flashing the initial-install file via USB again.
+
+The PlatformIO build below has no bootloader and no OTA. Flashing it overwrites MCUboot; flash an `_erstinstallation.hex` again to get OTA back.
+
 ### Building and Flashing
 
 Requirements: [PlatformIO](https://platformio.org) (e.g. the VS Code extension). The Seeed platform is fetched automatically.
@@ -139,6 +159,8 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 - **Force sensor** voltage plot with current range, **battery voltage** with a rough charge estimate (LiPo, only meaningful without USB charging)
 - **CSV recording** and download (including U_FSR, range, U_bat and the entered reference weight)
 - **Force–voltage calibration** points with CSV export
+- **Battery** level badge in the header (percentage estimate and voltage)
+- **Firmware update** over Bluetooth (MCUmgr/SMP)
 - German and English (switch in the top right corner)
 - Works offline after the first visit and can be installed as an app (PWA)
 
@@ -181,6 +203,10 @@ platformio.ini          PlatformIO project (board seeed-xiao-nrf54l15, Zephyr)
 src/main.c              Firmware: IMU, FSR and battery readout, serial CSV, BLE GATT service
 zephyr/prj.conf         Zephyr configuration (I²C, sensor, ADC, BLE)
 zephyr/app.overlay      Pins: D1 amplifier supply, A0 FSR, AIN7 battery
+zephyr/sysbuild.conf    MCUboot for the release build
+zephyr/ota.conf         MCUmgr/SMP over BLE (release build only)
+west.yml                Zephyr version for the release build
+.github/workflows/      Release build (MCUboot image + OTA update file, optional Pages deploy)
 zephyr/CMakeLists.txt
 docs/index.html         Web app (single file)
 docs/manifest.webmanifest, docs/sw.js, docs/icons/   PWA files

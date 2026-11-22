@@ -35,6 +35,11 @@
  *   }
  * Characteristic FEO_BAT_UUID (read, notify 1x pro Sekunde):
  *   uint16 U_Akku in mV (0 = noch nicht gemessen)
+ *
+ * Firmware-Update (nur Build mit MCUboot, zephyr/ota.conf): MCUmgr/SMP-Service
+ * über BLE. Ein neues Image läuft nach dem Neustart zunächst zur Probe; die
+ * Firmware bestätigt es selbst, sobald IMU, ADC und Bluetooth laufen. Startet
+ * es nicht bis dahin, stellt MCUboot beim nächsten Reset die alte Version wieder her.
  */
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -48,6 +53,9 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/uuid.h>
+#ifdef CONFIG_MCUBOOT_IMG_MANAGER
+#include <zephyr/dfu/mcuboot.h>
+#endif
 
 #define SAMPLE_RATE_HZ   100   /* Ausgaberate */
 #define IMU_ODR_HZ       208   /* interne Messrate des Sensors (>= 2x Ausgaberate) */
@@ -430,6 +438,16 @@ int main(void)
 		atomic_set(&need_adv, 0);
 	}
 
+#ifdef CONFIG_MCUBOOT_IMG_MANAGER
+	/* neues Image nach erfolgreichem Start dauerhaft übernehmen */
+	if (!err && !boot_is_img_confirmed()) {
+		int cerr = boot_write_img_confirmed();
+
+		printk("# Update: neue Firmware %s\n", cerr ? "NICHT bestätigt" : "bestätigt");
+	}
+	printk("# Firmware %s (MCUboot, Update per Bluetooth möglich)\n",
+	       CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION);
+#endif
 	printk("# XIAO nRF54L15 FEO-Sensor, %d Hz, +-%d g, +-%d dps, FSR + Akku\n",
 	       SAMPLE_RATE_HZ, ACCEL_RANGE_G, GYRO_RANGE_DPS);
 	printk("# t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv\n");
