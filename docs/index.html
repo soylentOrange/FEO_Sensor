@@ -119,6 +119,7 @@
   .outs { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
   .outs label { display: inline-flex; gap: 4px; align-items: center; color: var(--fg); }
   .badge.act-on { border-color: var(--y); }
+  .badge.step { background: var(--f); border-color: var(--f); color: #fff; }
   .vid video { width: 100%; max-height: 260px; background: #000; border-radius: 6px; display: block; }
   .vid .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
   @media (max-width: 900px) { body[data-page=log] main { grid-template-columns: 1fr; } }
@@ -149,11 +150,11 @@
 </header>
 <div id="nows" class="warn" hidden data-i18n="nows"></div>
 <nav class="tabs">
-  <button data-page="imu" data-i18n="tabImu"></button>
-  <button data-page="cal" data-i18n="tabCal"></button>
-  <button data-page="align" data-i18n="tabAlign"></button>
   <button data-page="gait" data-i18n="tabGait"></button>
   <button data-page="log" data-i18n="tabLog"></button>
+  <button data-page="align" data-i18n="tabAlign"></button>
+  <button data-page="cal" data-i18n="tabCal"></button>
+  <button data-page="imu" data-i18n="tabImu"></button>
   <button data-page="fw" data-i18n="tabFw"></button>
 </nav>
 <div id="outs" class="outs" hidden><span data-i18n="outs"></span>
@@ -1910,7 +1911,7 @@ async function ctrlConnect(svc) {
   renderLogStatus();
 }
 function ctrlDisconnected() {
-  ctrlChr = logChr = devSt = null; rd = null; $("outs").hidden = true; $("actBadge").hidden = true;
+  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true;
   renderLogStatus();
 }
 
@@ -1925,6 +1926,15 @@ function renderOuts() {
   const act = devSt.activity === 2 ? T("actMove") : devSt.activity === 1 ? T("actStill") : T("actRest");
   b.textContent = `${act} · ${devSt.strides} ${T("actStrides")}${devSt.flags & DL_ST.RUN ? " · ⏺" : ""}`;
   b.classList.toggle("act-on", devSt.activity === 2);
+  if (devSt.strides > actStrides && actStrides >= 0) actBlink();
+  actStrides = devSt.strides;
+}
+// flash the activity badge for every new stride (from the status or a stride record)
+let actStrides = -1, actBlinkT = 0;
+function actBlink() {
+  const b = $("actBadge");
+  b.classList.add("step"); clearTimeout(actBlinkT);
+  actBlinkT = setTimeout(() => b.classList.remove("step"), 250);
 }
 document.querySelectorAll("#outs input[data-bit]").forEach(cb => cb.onchange = async () => {
   if (!devSt) return;
@@ -2295,9 +2305,9 @@ $("vRec").onclick = () => vRec ? vStopRec() : vStartRec();
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) $("vCam").disabled = true;
 
 // ---------- Seiten (Tabs) ----------
-let page = "imu";
+let page = "gait";
 function setPage(p) {
-  if (!["imu", "cal", "align", "gait", "log", "fw"].includes(p)) p = "imu";
+  if (!["imu", "cal", "align", "gait", "log", "fw"].includes(p)) p = "gait";
   page = p;
   document.body.dataset.page = p;
   document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.page === p));
