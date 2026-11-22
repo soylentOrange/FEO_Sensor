@@ -2,21 +2,21 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>XIAO IMU live</title>
+<title>FEO-Sensor live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f2a24">
-<meta name="description" content="Live view of the IMU on the Seeed XIAO nRF54L15 Sense via Bluetooth LE or USB serial">
+<meta name="description" content="Live view of IMU, force sensor and battery voltage of the heel offloading orthosis sensor (Seeed XIAO nRF54L15 Sense) via Bluetooth LE or USB serial">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
   :root {
     --bg: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --grid: #e4e4df; --card: #fff;
-    --x: #d1495b; --y: #2e8b57; --z: #2f6fbd; --m: #7a4fb5;
+    --x: #d1495b; --y: #2e8b57; --z: #2f6fbd; --m: #7a4fb5; --f: #c0700f;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #161615; --fg: #ececea; --muted: #9a9a94; --grid: #2c2c2a; --card: #1f1f1d;
-            --x: #ef7585; --y: #5cc28a; --z: #6aa4ea; --m: #b48cf0; }
+            --x: #ef7585; --y: #5cc28a; --z: #6aa4ea; --m: #b48cf0; --f: #f0a24a; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -43,6 +43,17 @@
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .hint b { font: 600 12px ui-monospace, Menlo, monospace; white-space: pre; }
   .logc { grid-column: 1 / -1; }
+  .sf { color: var(--f); }
+  .cal .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 8px; }
+  .cal input { font: inherit; width: 6.5em; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--grid);
+               background: var(--card); color: var(--fg); }
+  .cal canvas { height: 150px; }
+  .cal table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; margin-top: 6px; }
+  .cal th, .cal td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  .cal th { font-weight: 600; color: var(--muted); }
+  .cal .tbl { max-height: 11em; overflow: auto; }
+  .bat-low { color: var(--x); }
+  .fcard { align-self: start; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
   @media (max-width: 600px) {
     header { padding: 10px 10px; gap: 8px; } h1 { flex: 1; order: 0; } .lang { order: 1; }
@@ -69,7 +80,7 @@
 </head>
 <body>
 <header>
-  <h1>XIAO nRF54L15 IMU live</h1>
+  <h1>FEO-Sensor live</h1>
   <button id="connect" class="primary"></button>
   <button id="ble" class="primary"></button>
   <button id="record" disabled></button>
@@ -105,6 +116,32 @@
     </h2>
     <canvas id="gyr"></canvas>
   </div>
+  <div class="card fcard">
+    <h2><span data-i18n="fsr"></span>
+      <span class="sf">U <b id="vfsr">–</b> mV</span><span><span data-i18n="range"></span> <b id="vrange">–</b></span>
+      <span><span data-i18n="bat"></span> <b id="vbat">–</b></span>
+    </h2>
+    <canvas id="fsrc"></canvas>
+  </div>
+  <div class="card cal">
+    <h2><span data-i18n="cal"></span></h2>
+    <div class="row">
+      <label><span data-i18n="refKg"></span> <input id="refkg" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00"></label>
+      <label><span data-i18n="avg"></span>
+        <select id="avgs"><option value="0.5">0,5 s</option><option value="1" selected>1 s</option><option value="2">2 s</option><option value="3">3 s</option></select></label>
+    </div>
+    <div class="row">
+      <button id="calAdd" class="primary" disabled data-i18n="calAdd"></button>
+      <button id="calUndo" data-i18n="calUndo"></button>
+      <button id="calClear" data-i18n="calClear"></button>
+      <button id="calCsv" data-i18n="calCsv"></button>
+    </div>
+    <div class="hint"><span data-i18n="calNow"></span> <b id="vavg">–</b></div>
+    <canvas id="calc"></canvas>
+    <div class="tbl"><table><thead><tr><th>#</th><th>kg</th><th>U̅ mV</th><th>σ mV</th><th>n</th><th data-i18n="rangeS"></th><th data-i18n="batS"></th></tr></thead>
+      <tbody id="calt"></tbody></table></div>
+    <div class="hint" data-i18n="calHint"></div>
+  </div>
   <div class="card logc"><div id="log"></div></div>
 </main>
 <footer><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
@@ -114,7 +151,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const MAXPTS = 30 * 250;          // Puffer für bis zu 30 s bei 250 Hz
-const buf = [];                   // [t_ms, ax, ay, az, gx, gy, gz]
+const buf = [];                   // [t_ms, ax, ay, az, gx, gy, gz, |a|, |ω|, u_fsr_mv, fsr_range_mv, u_bat_mv]
 let port = null, reader = null, keepReading = false, paused = false;
 let recording = null;             // Array von Zeilen oder null
 let rateCount = 0, rateT0 = performance.now(), rateHz = 0;
@@ -137,6 +174,13 @@ const TEXT = {
     logBrave: "Brave: brave://flags/#brave-web-bluetooth-api auf \"Enabled\" stellen und Brave neu starten.",
     logConnErr: m => "Verbindung fehlgeschlagen: " + m, logReadErr: m => "Lesefehler: " + m,
     logSaved: (n, f) => `# ${n} Messungen gespeichert als ${f}`, logZero: b => `# Genullt, Gyro-Offset ${b} °/s`,
+    fsr: "Kraftsensor (Spannung am Verstärkerausgang A0)", range: "Bereich", bat: "Akku", rangeS: "Ber. mV", batS: "Akku V",
+    cal: "Kalibrierung Kraft – Spannung", refKg: "Referenzgewicht (kg)", avg: "Mittelung",
+    calAdd: "Messpunkt übernehmen", calUndo: "Letzten löschen", calClear: "Alle löschen", calCsv: "CSV herunterladen",
+    calNow: "Mittelwert jetzt:", calNoKg: "Bitte zuerst das Referenzgewicht eingeben.", calNoData: "Keine FSR-Daten im Mittelungsfenster.",
+    calAsk: "Alle Kalibrierpunkte löschen?",
+    calHint: "Gewicht auflegen, ruhig halten, Gewicht eintragen und „Messpunkt übernehmen“. Die Punkte bleiben im Browser gespeichert. Die laufende Aufnahme oben enthält zusätzlich das eingetragene Referenzgewicht in jeder Zeile.",
+    logCal: (k, m, s) => `# Messpunkt ${k} kg: ${m} mV (σ ${s} mV)`,
   },
   en: {
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
@@ -154,9 +198,16 @@ const TEXT = {
     logBrave: "Brave: set brave://flags/#brave-web-bluetooth-api to \"Enabled\" and restart Brave.",
     logConnErr: m => "Connection failed: " + m, logReadErr: m => "Read error: " + m,
     logSaved: (n, f) => `# ${n} samples saved as ${f}`, logZero: b => `# Zeroed, gyro offset ${b} °/s`,
+    fsr: "Force sensor (voltage at amplifier output A0)", range: "Range", bat: "Battery", rangeS: "Rng mV", batS: "Bat V",
+    cal: "Force – voltage calibration", refKg: "Reference weight (kg)", avg: "Averaging",
+    calAdd: "Add point", calUndo: "Delete last", calClear: "Delete all", calCsv: "Download CSV",
+    calNow: "Current mean:", calNoKg: "Please enter the reference weight first.", calNoData: "No FSR data in the averaging window.",
+    calAsk: "Delete all calibration points?",
+    calHint: "Place the weight, keep still, enter the weight and press “Add point”. Points are kept in the browser. The recording above also contains the entered reference weight in every row.",
+    logCal: (k, m, s) => `# Point ${k} kg: ${m} mV (σ ${s} mV)`,
   },
 };
-let lang = localStorage.getItem("imuLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
+let lang = localStorage.getItem("feoLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
 let statusKey = "stIdle";
 const T = (k, ...a) => { const v = TEXT[lang][k]; return typeof v === "function" ? v(...a) : v; };
 function applyLang() {
@@ -170,7 +221,7 @@ function applyLang() {
   if (statusKey) $("status").textContent = T(statusKey);
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
-["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("imuLang", l); applyLang(); });
+["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
 
 // USB-Seriell gibt es z. B. auf Android nicht -> Knopf ausblenden; Warnung nur, wenn gar nichts geht
 // Neuere Chrome-Versionen auf Android kennen navigator.serial, USB zum XIAO geht dort aber nicht
@@ -182,27 +233,37 @@ if (!("serial" in navigator) && !("bluetooth" in navigator)) $("nows").hidden = 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js");
 
 // ---------- Bluetooth LE ----------
-const IMU_SVC = "7a1e0001-5c3b-4f0a-9d2e-3c8f1b6a4d01";
-const IMU_DATA = "7a1e0002-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_SVC = "7a1e0011-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_DATA = "7a1e0012-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_BAT = "7a1e0013-5c3b-4f0a-9d2e-3c8f1b6a4d01";
 const SAMPLE_MS = 10;
+const RANGES_MV = [900, 1800, 3600];   // Messbereich je nach SAADC-Gain 1, 1/2, 1/4
 let bleDev = null;
+let batMv = 0;                         // letzte Akkuspannung (mV), 0 = unbekannt
 
 $("ble").onclick = async () => {
   if (bleDev) { bleDev.gatt.disconnect(); return; }
   try {
-    bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [IMU_SVC] }] });
+    bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }] });
     bleDev.addEventListener("gattserverdisconnected", () => {
       log(T("logBleOff")); bleDev = null;
       $("ble").textContent = T("bleOn"); setStatus("stIdle");
     });
     setStatus("stBle");
     const server = await bleDev.gatt.connect();
-    const ch = await (await server.getPrimaryService(IMU_SVC)).getCharacteristic(IMU_DATA);
+    const svc = await server.getPrimaryService(FEO_SVC);
+    const ch = await svc.getCharacteristic(FEO_DATA);
     ch.addEventListener("characteristicvaluechanged", e => handlePacket(e.target.value));
     await ch.startNotifications();
+    try {
+      const bat = await svc.getCharacteristic(FEO_BAT);
+      bat.addEventListener("characteristicvaluechanged", e => { batMv = e.target.value.getUint16(0, true); });
+      batMv = (await bat.readValue()).getUint16(0, true);
+      await bat.startNotifications();
+    } catch (e) { log(T("logBleErr", e.message)); }
     $("ble").textContent = T("bleOff");
-    $("record").disabled = false; $("pause").disabled = false;
-    log(T("logBleOn", bleDev.name || "XIAO-IMU"));
+    $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
+    log(T("logBleOn", bleDev.name || "XIAO-FEO"));
   } catch (e) {
     log(T("logBleErr", e.message));
     if (/globally disabled/i.test(e.message))
@@ -212,14 +273,18 @@ $("ble").onclick = async () => {
   }
 };
 
+// Paket: uint32 t_ms, uint8 n, n x { 6 x int16 IMU, uint16 FSR (Bit 0..13 mV, Bit 14..15 Messbereich) }
+const PKT_SAMPLE = 14;
 function handlePacket(dv) {
   if (dv.byteLength < 5) return;
   const t0 = dv.getUint32(0, true), n = dv.getUint8(4);
-  for (let i = 0; i < n && 5 + (i + 1) * 12 <= dv.byteLength; i++) {
-    const o = 5 + i * 12, g = k => dv.getInt16(o + 2 * k, true);
+  for (let i = 0; i < n && 5 + (i + 1) * PKT_SAMPLE <= dv.byteLength; i++) {
+    const o = 5 + i * PKT_SAMPLE, g = k => dv.getInt16(o + 2 * k, true);
+    const f = dv.getUint16(o + 12, true);
     const v = [t0 + i * SAMPLE_MS, g(0) / 1000, g(1) / 1000, g(2) / 1000, g(3) / 10, g(4) / 10, g(5) / 10];
     handleLine(v[0] + "," + v.slice(1, 4).map(x => x.toFixed(3)).join(",") + "," +
-               v.slice(4).map(x => x.toFixed(1)).join(","));
+               v.slice(4).map(x => x.toFixed(1)).join(",") + "," +
+               (f & 0x3fff) + "," + (RANGES_MV[f >> 14] || 0) + "," + batMv);
   }
 }
 
@@ -240,7 +305,7 @@ $("connect").onclick = async () => {
     await port.open({ baudRate: 115200 });
   } catch (e) { port = null; log(T("logConnErr", e.message)); return; }
   $("connect").textContent = T("usbOff");
-  $("record").disabled = false; $("pause").disabled = false;
+  $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
   setStatus("stWait");
   readLoop();
 };
@@ -286,15 +351,18 @@ function handleLine(line) {
   if (!line) return;
   if (line.startsWith("#")) { log(line); return; }
   const p = line.split(",");
-  if (p.length !== 7) return;
-  const v = p.map(Number);
-  if (v.some(Number.isNaN)) return;
-  v.push(Math.hypot(v[1], v[2], v[3]), Math.hypot(v[4], v[5], v[6]));   // |a|, |ω|
+  if (p.length !== 10) return;
+  const r = p.map(Number);
+  if (r.some(Number.isNaN)) return;
+  // interne Reihenfolge: t, a, ω, |a|, |ω|, u_fsr, Messbereich, u_bat
+  const v = r.slice(0, 7);
+  v.push(Math.hypot(v[1], v[2], v[3]), Math.hypot(v[4], v[5], v[6]), r[7], r[8], r[9]);
+  if (r[9] > 0) batMv = r[9];
   ahrsUpdate(v);
   if (buf.length && v[0] < buf[buf.length - 1][0]) buf.length = 0;   // Board neu gestartet
   buf.push(v);
   if (buf.length > MAXPTS) buf.splice(0, buf.length - MAXPTS);
-  if (recording) recording.push(line);
+  if (recording) recording.push(line + "," + refKgText());
   rateCount++;
 }
 
@@ -306,20 +374,106 @@ $("record").onclick = () => {
     $("record").textContent = T("recOff");
     $("record").classList.add("rec");
   } else {
-    const csv = "t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps\n" + recording.join("\n") + "\n";
+    const csv = CSV_HEAD + ",ref_kg\n" + recording.join("\n") + "\n";
     const n = recording.length;
     recording = null;
     $("record").textContent = T("recOn");
     $("record").classList.remove("rec");
-    const ts = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `imu_${ts}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    log(T("logSaved", n, a.download));
+    const ts = fileTs();
+    log(T("logSaved", n, download(csv, `feo_${ts}.csv`)));
   }
 };
+
+const CSV_HEAD = "t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv";
+const fileTs = () => new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+function download(text, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return name;
+}
+
+// ---------- Kalibrierung Kraft – Spannung ----------
+// Referenzgewicht als Text (Punkt als Dezimaltrenner), leer wenn nicht eingetragen
+const refKgText = () => { const k = parseFloat($("refkg").value); return Number.isFinite(k) ? String(k) : ""; };
+let calPts = [];
+try { calPts = JSON.parse(localStorage.getItem("feoCal") || "[]"); } catch (e) { calPts = []; }
+const saveCal = () => localStorage.setItem("feoCal", JSON.stringify(calPts));
+
+// Statistik der FSR-Spannung über die letzten avg Sekunden
+function fsrWindowStats() {
+  if (!buf.length) return null;
+  const tEnd = buf[buf.length - 1][0], tStart = tEnd - Number($("avgs").value) * 1000;
+  const xs = [], ranges = new Set();
+  for (let i = buf.length - 1; i >= 0 && buf[i][0] > tStart; i--) {
+    if (buf[i][10] > 0) { xs.push(buf[i][9]); ranges.add(buf[i][10]); }
+  }
+  if (!xs.length) return null;
+  const mean = xs.reduce((s, x) => s + x, 0) / xs.length;
+  const sd = Math.sqrt(xs.reduce((s, x) => s + (x - mean) ** 2, 0) / Math.max(1, xs.length - 1));
+  return { mean, sd, min: Math.min(...xs), max: Math.max(...xs), n: xs.length, ranges: [...ranges].sort((a, b) => a - b).join("/") };
+}
+
+function renderCal() {
+  $("calt").innerHTML = calPts.map((p, i) =>
+    `<tr><td>${i + 1}</td><td>${p.kg}</td><td>${p.mean.toFixed(1)}</td><td>${p.sd.toFixed(1)}</td>` +
+    `<td>${p.n}</td><td>${p.ranges}</td><td>${p.bat ? (p.bat / 1000).toFixed(2) : "–"}</td></tr>`).join("");
+  $("calUndo").disabled = $("calClear").disabled = $("calCsv").disabled = !calPts.length;
+}
+
+$("calAdd").onclick = () => {
+  const kg = parseFloat($("refkg").value);
+  if (!Number.isFinite(kg)) { log(T("calNoKg")); $("refkg").focus(); return; }
+  const st = fsrWindowStats();
+  if (!st) { log(T("calNoData")); return; }
+  calPts.push({ time: new Date().toISOString(), kg, avg_s: Number($("avgs").value), ...st, bat: batMv });
+  saveCal(); renderCal();
+  log(T("logCal", kg, st.mean.toFixed(1), st.sd.toFixed(1)));
+};
+$("calUndo").onclick = () => { calPts.pop(); saveCal(); renderCal(); };
+$("calClear").onclick = () => { if (confirm(T("calAsk"))) { calPts = []; saveCal(); renderCal(); } };
+$("calCsv").onclick = () => {
+  const head = "nr,time_iso,ref_kg,u_fsr_mean_mv,u_fsr_sd_mv,u_fsr_min_mv,u_fsr_max_mv,n,avg_s,fsr_range_mv,u_bat_mv";
+  const rows = calPts.map((p, i) => [i + 1, p.time, p.kg, p.mean.toFixed(2), p.sd.toFixed(2), p.min, p.max, p.n,
+                                      p.avg_s, p.ranges, p.bat || ""].join(","));
+  log(T("logSaved", calPts.length, download(head + "\n" + rows.join("\n") + "\n", `fsr_kalibrierung_${fileTs()}.csv`)));
+};
+
+function drawCal() {
+  const canvas = $("calc"), dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const L = 48, R = 8, Tp = 6, B = 20, pw = W - L - R, ph = H - Tp - B;
+  const kmax = Math.max(1, ...calPts.map(p => p.kg)) * 1.1, umax = Math.max(100, ...calPts.map(p => p.max)) * 1.1;
+  const X = k => L + k / kmax * pw, Y = u => Tp + (1 - u / umax) * ph;
+  ctx.font = "11px -apple-system, sans-serif"; ctx.fillStyle = css("--muted"); ctx.strokeStyle = css("--grid"); ctx.lineWidth = 1;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  const us = niceStep(umax);
+  for (let u = 0; u <= umax; u += us) { const y = Math.round(Y(u)) + .5; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillText(+u.toFixed(0), L - 6, y); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const ks = niceStep(kmax);
+  for (let k = 0; k <= kmax; k += ks) ctx.fillText(+k.toFixed(2) + " kg", X(k), H - B + 4);
+  const col = css("--f");
+  ctx.strokeStyle = col; ctx.fillStyle = col;
+  [...calPts].sort((a, b) => a.kg - b.kg).forEach(p => {
+    ctx.beginPath(); ctx.moveTo(X(p.kg), Y(p.min)); ctx.lineTo(X(p.kg), Y(p.max)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(p.kg), Y(p.mean), 3.5, 0, 2 * Math.PI); ctx.fill();
+  });
+}
+
+// Akku: grobe Ladezustandsschätzung für LiPo (Ruhespannung, beim Laden zu hoch)
+function batPercent(mv) {
+  const tbl = [[3300, 0], [3500, 5], [3600, 10], [3700, 25], [3750, 40], [3800, 50], [3900, 65], [4000, 78], [4100, 90], [4200, 100]];
+  if (mv <= tbl[0][0]) return 0;
+  for (let i = 1; i < tbl.length; i++) if (mv <= tbl[i][0])
+    return tbl[i - 1][1] + (mv - tbl[i - 1][0]) / (tbl[i][0] - tbl[i - 1][0]) * (tbl[i][1] - tbl[i - 1][1]);
+  return 100;
+}
 
 // feste Breite für Live-Werte: feste Nachkommastellen, links mit Leerzeichen aufgefüllt
 const fmt = (x, dec, width) => {
@@ -605,6 +759,8 @@ function frame() {
   if (!paused) {
     drawChart($("acc"), [1, 2, 3, 7], 0.5, ["--x", "--y", "--z", "--m"]);
     drawChart($("gyr"), [4, 5, 6, 8], 20, ["--x", "--y", "--z", "--m"]);
+    drawChart($("fsrc"), [9], 100, ["--f"], true);
+    drawCal();
     draw3d();
     const last = buf[buf.length - 1];
     if (last) {
@@ -612,12 +768,19 @@ function frame() {
       ["vgx", "vgy", "vgz"].forEach((id, i) => $(id).textContent = fmt(last[4 + i], 0, 5));
       $("vam").textContent = fmt(last[7], 2, 6);
       $("vgm").textContent = fmt(last[8], 0, 5);
+      $("vfsr").textContent = fmt(last[9], 0, 4);
+      $("vrange").textContent = last[10] ? (last[10] / 1000).toFixed(1) + " V" : "–";
     }
+    const st = fsrWindowStats();
+    $("vavg").textContent = st ? `${st.mean.toFixed(1)} mV (σ ${st.sd.toFixed(1)}, n ${st.n})` : "–";
+    $("vbat").textContent = batMv ? `${(batMv / 1000).toFixed(2)} V (~${batPercent(batMv).toFixed(0)} %)` : "–";
+    $("vbat").classList.toggle("bat-low", batMv > 0 && batMv < 3500);
   }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 applyLang();
+renderCal();
 </script>
 </body>
 </html>
