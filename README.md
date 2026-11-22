@@ -25,11 +25,14 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 1. [Overview](#overview)
 2. [Hardware](#hardware) ([details](hardware/README.md))
 3. [Firmware](#firmware)
+   - [Step Detection and Force per Gait Phase](#step-detection-and-force-per-gait-phase)
+   - [Power Saving](#power-saving)
    - [Building and Flashing](#building-and-flashing)
    - [Data Formats](#data-formats)
 4. [Web App](#web-app)
    - [Features](#features)
    - [Force Calibration](#force-calibration)
+   - [Sensor Alignment](#sensor-alignment)
    - [Browser Support](#browser-support)
    - [Install on Android](#install-on-android)
 5. [Repository Layout](#repository-layout)
@@ -43,7 +46,7 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 - **Sensor:** LSM6DS3TR-C on the XIAO nRF54L15 Sense (I²C, Zephyr driver `lsm6dsl`), ±16 g and ±2000 °/s, internal rate 208 Hz, output 100 Hz.
 - **Force sensor:** 30 mm FSR in a transimpedance amplifier (MCP602, V_ref ≈ 0.1 V) with a Sallen-Key low-pass (~23 Hz), output to A0. The SAADC switches its gain automatically (see below).
 - **Battery:** LiPo, measured via the on-board 1:2 divider at AIN7. The divider is switched on only for the measurement.
-- **Firmware:** Zephyr 4.2 via PlatformIO. Streams every sample over USB serial (CSV) and over BLE notifications at the same time.
+- **Firmware:** Zephyr (PlatformIO, or west with MCUboot for releases). Streams every sample over USB serial (CSV) and, on request, over BLE; detects strides and the force per gait phase on its own; sleeps when the leg is still.
 - **Web app:** a single HTML file without external dependencies. Uses Web Bluetooth and Web Serial, a Madgwick filter for orientation, and a small 3D model derived from the Seeed STEP model.
 
 ## Hardware
@@ -105,6 +108,35 @@ MCUboot only installs update images that are signed with the key its bootloader 
 
 The PlatformIO build below has no bootloader and no OTA. Flashing it overwrites MCUboot; flash a `_factory.hex` again to get OTA back.
 
+### Step Detection and Force per Gait Phase
+
+The firmware detects strides on its own, with or without an app connected ([`src/gait.c`](src/gait.c), host test in [`tools/gait_test.c`](tools/gait_test.c)). The algorithm follows Fadillioglu, Stetter et al. (2020), *Automated gait event detection for a variety of locomotion tasks using a novel gyroscope-based algorithm*, Gait & Posture, doi:[10.1016/j.gaitpost.2020.06.019](https://doi.org/10.1016/j.gaitpost.2020.06.019). It runs in real time on the shank's sagittal angular rate ω (positive = foot swings forward, gyro offset removed while the leg is still):
+
+- **Mid-swing (MS):** maximum of ω (15 Hz low-pass) above a threshold, at least 333 ms after the previous MS. The threshold adapts to 30 % of the recent peaks (at least 50 °/s) instead of the paper's fixed value.
+- **Initial contact (IC):** first zero crossing of ω after MS.
+- **Toe-off (TO):** from the complementary signal (unfiltered − 15 Hz, then 10 Hz low-pass), searched from the previous MS + 50 % of the cycle to the negative peak before MS (+ 10 % of the cycle for slow gait, cycle > 1 s). The minimum is used for slow gait and the maximum for fast gait.
+
+A stride runs from IC to the next IC. For every stride the firmware reports the stride and stance time, the angular rates at MS/IC/TO, and the force (kg, from the stored calibration): peak, mean and impulse in stance, the time to peak, the mean in swing, the mean over 20 bins of 5 % of the gait cycle, and the mean and maximum per **Rancho Los Amigos** phase. With one sensor only the IC and TO of that leg are known, so the phase limits in between assume a symmetric gait (stride L, stance T):
+
+| Phase | Ends at | Normal gait |
+|---|---|---|
+| IC Initial contact | 2 % of L | 0–2 % |
+| LR Loading response | T − L/2 (toe-off of the other leg) | 2–10 % |
+| MSt Mid stance | middle of single support | 10–30 % |
+| TSt Terminal stance | L/2 (initial contact of the other leg) | 30–50 % |
+| PSw Pre-swing | T (toe-off) | 50–60 % |
+| ISw / MSw / TSw | thirds of the swing phase | 60–73 / 73–87 / 87–100 % |
+
+The rotation axis comes from the [sensor alignment](#sensor-alignment). Without one, the firmware uses the principal axis of the angular rate while walking (sign from the third moment: swing peaks are the largest).
+
+### Power Saving
+
+- After 20 s without movement, and while no app requests raw data, the sensor goes to **rest**: gyro off, accelerometer in low-power mode (26 Hz, ±2 g) with its wake-up interrupt on INT1 (P0.02), MCP602 supply (D1) off, no serial output. The nRF sleeps until the IMU detects movement and measures the battery once a minute. On wake-up the amplifier gets 50 ms to settle before the first force sample.
+- **Raw data** (IMU + FSR, `7a1e0012`) is only sent while the app subscribes to it. The app does this only on the IMU, Calibration and Alignment tabs and during a recording. Steps are always sent on their own characteristic.
+- **Advertising** runs at 100–150 ms for 30 s after power-on or disconnect, then at about 1 s.
+- **LED:** off at rest; a short dim flash at 2 Hz while movement is detected; a longer, brighter flash at every initial contact.
+- The console UART only transmits (`disable-rx`).
+
 ### Building and Flashing
 
 Requirements: [PlatformIO](https://platformio.org) (e.g. the VS Code extension). The Seeed platform is fetched automatically.
@@ -152,6 +184,9 @@ t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
 - Characteristic `7a1e0013-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, notify once per second): battery voltage, uint16 in mV
 - Characteristic `7a1e0014-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): force calibration, stored in flash (Zephyr settings). Little endian: float32 `VREF` (mV), `RF` (Ω), `RS` (Ω), `K`, `N`, uint32 calibration time (Unix s, 0 = factory values). Reading returns 4 more bytes: float32 `VREF_0`, the rest voltage measured at power-on (0 = not measured or implausible). Only the first 24 bytes are written.
 
+- Characteristic `7a1e0015-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): sensor alignment, stored in flash. float32 R[3][3] (rows: x forward, y right = sagittal axis, z down, each in sensor coordinates), uint32 time (Unix s; 0 = none, the firmware then estimates the axis itself). Reading returns 28 more bytes: float32 axis[3] currently used, float32 gyro offset[3] (°/s), uint32 number of strides since power-on.
+- Characteristic `7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify, write): one 102-byte record per stride (see below). The last 1024 records stay in RAM; writing a uint32 `seq` sends all records from that number again.
+
 The UUIDs differ from XIAO_IMU_Live, so the two apps do not pick up each other's boards.
 
 Each sample notification (little endian):
@@ -162,6 +197,8 @@ Each sample notification (little endian):
 | `n` | uint8 | Number of samples, 10 ms apart |
 | samples | n × 14 bytes | 6 × int16: ax, ay, az in mg; gx, gy, gz in 0.1 °/s<br>uint16: bits 0–13 U_FSR in mV, bits 14–15 range (0 = 0.9 V, 1 = 1.8 V, 2 = 3.6 V) |
 
+Each stride record (little endian, 102 bytes): uint32 `seq`, uint32 `t_ic_ms`, uint16 `stride_ms`, uint16 `stance_ms`, int16 ω at MS, IC, TO (0.1 °/s), uint16 force peak, stance mean (0.01 kg), uint16 stance impulse (0.01 kg·s), uint16 time IC → peak (ms), int16 swing mean (0.01 kg), uint16 flags (1 = overload, 2 = calibrated axis, 4 = automatic axis not settled yet, 8 = simple TO), 20 × uint16 force per 5 % of the cycle, 8 × uint16 mean and 8 × uint16 maximum per Rancho Los Amigos phase (IC, LR, MSt, TSt, PSw, ISw, MSw, TSw; 0.01 kg). Over USB serial each stride appears as a comment line `#S,seq,t_ic_ms,stride_ms,stance_ms,ms_dps,ic_dps,to_dps,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags,` followed by the 20 bins, 8 phase means and 8 phase maxima in kg.
+
 **CSV recordings** from the web app use the serial columns plus `ref_kg`, the reference weight entered in the calibration panel at that moment (empty if none).
 
 ## Web App
@@ -171,7 +208,8 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 ### Features
 
 - Connect via **Bluetooth LE** or **USB serial**
-- Three tabs: **IMU** (plots and 3D view), **Calibration** (force sensor, kg display, calibration points, coefficients) and **Firmware update**. Connection, recording, battery badge and log stay visible on every tab; the last tab is remembered and can be linked directly (`#imu`, `#cal`, `#fw`)
+- Five tabs: **IMU** (plots and 3D view), **Calibration** (force sensor, kg display, calibration points, coefficients), **Alignment** (sensor axes on the shank), **Steps** (strides and force per gait phase) and **Firmware update**. Connection, recording, battery badge and log stay visible on every tab; the last tab is remembered and can be linked directly (`#imu`, `#cal`, `#align`, `#gait`, `#fw`)
+- **Steps:** cadence, stride and stance time, heel force; bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s
 - **3D orientation** view (Madgwick filter, accelerometer + gyroscope) with a model of the board, drag with mouse or finger to rotate the camera, "Zero" to reset orientation and gyro offset
 - **Force sensor** voltage plot with current range, **battery voltage** with a rough charge estimate (LiPo, only meaningful without USB charging)
@@ -212,6 +250,16 @@ nr,time_iso,ref_kg,u_fsr_mean_mv,u_fsr_sd_mv,u_fsr_min_mv,u_fsr_max_mv,n,avg_s,f
 
 Points are kept in the browser (localStorage) until deleted. For loading/unloading curves (hysteresis), use a normal recording instead: every row then carries the currently entered reference weight.
 
+### Sensor Alignment
+
+Step detection needs the shank's angular rate about the medio-lateral axis. Because the sensor is never mounted exactly aligned, the **Alignment** tab builds a shank coordinate system (x forward, y right = rotation axis, z down along the shank):
+
+1. **Keep still** with the shank vertical (2 s): gravity gives the long axis, the mean angular rate gives the gyro offset.
+2. **Walk** 10–20 steps or **swing the shank** while seated: the principal axis of the angular rate (PCA) is the rotation axis. The app shows how much of the angular rate it explains and its angle to the vertical (should be close to 90°).
+3. **Direction:** when walking, the sign follows from the gait pattern (swing peaks are larger than the negative peaks at toe-off and initial contact). For the pendulum, or to make sure, press *Check direction* and lift the foot forward within 3 s. *Reverse direction* flips it by hand.
+
+The live plot of the sagittal angular rate shows whether the result is right (large positive swing peaks). **Write to device** stores it in flash; **Delete calibration** returns to the automatic axis.
+
 ### Browser Support
 
 | | Bluetooth LE | USB serial |
@@ -233,7 +281,9 @@ Web Bluetooth and Web Serial need a secure context: `https://` (e.g. GitHub Page
 
 ```text
 platformio.ini          PlatformIO project (board seeed-xiao-nrf54l15, Zephyr)
-src/main.c              Firmware: IMU, FSR and battery readout, serial CSV, BLE GATT service
+src/main.c              Firmware: IMU, FSR and battery readout, serial CSV, BLE GATT service, rest mode
+src/gait.c, gait.h      Step detection (Fadillioglu et al. 2020), force per stride and gait phase
+tools/gait_test.c       Host test of the step detection (synthetic gait or a CSV recording)
 zephyr/prj.conf         Zephyr configuration (I²C, sensor, ADC, BLE)
 zephyr/app.overlay      Pins: D1 amplifier supply, A0 FSR, AIN7 battery
 zephyr/sysbuild.conf    MCUboot for the release build
