@@ -15,8 +15,8 @@ def cable(pts,col,dash=""):
     a(f'<path d="{d}" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>')
     a(f'<path d="{d}" fill="none" stroke="{col}" stroke-width="3" stroke-linejoin="round" {dash}/>')
 rect(BAT,"#cfd8dc","#607d8b",'stroke-dasharray="7,4" rx="4"')
-a(f'<text x="{X(1)}" y="{Y(19.3)}" class="tiny" fill="#455a64">LiPo 32×20×4 quer (darunter)</text>')
-# Kabel
+a(f'<text x="{X(1)}" y="{Y(19.3)}" class="tiny" fill="#455a64">LiPo 32×20×4 crosswise (underneath)</text>')
+# cables
 p1=bp(3,2); p8=bp(6,2); g=bp(4,3); x1=bp(3,7); x4=bp(6,7)
 d0=xp("L",0); d1=xp("L",1); gn=xp("R",1)
 cable([p1,(p1[0],1.3),(13.6,1.3),(13.6,d0[1]),d0],"#1f77b4")
@@ -26,15 +26,15 @@ cable([x4,(x4[0]+1.1,x4[1]),(x4[0]+1.1,19.0),(24.0,19.0),(24.0,17.2)],"#e91e63",
 cable([(0.0,10.0),(-1.0,10.0),(-1.0,x1[1]-1.6),(x1[0],x1[1]-1.6),x1],"#c2185b")
 cable([(0.0,11.4),(-1.8,11.4),(-1.8,x1[1]+0.6),(bp(4,7)[0],x1[1]+0.6),bp(4,7)],"#555")
 a(f'<rect x="{X(-0.6)}" y="{Y(9.0)}" width="{1.4*S}" height="{3.4*S}" fill="#90a4ae" stroke="#455a64"/>')
-a(f'<text x="{X(BRD[0])-8}" y="{Y(9.6)}" class="tiny" text-anchor="end">Akku-</text>')
-a(f'<text x="{X(BRD[0])-8}" y="{Y(9.6)+15}" class="tiny" text-anchor="end">Abgang</text>')
+a(f'<text x="{X(BRD[0])-8}" y="{Y(9.6)}" class="tiny" text-anchor="end">battery</text>')
+a(f'<text x="{X(BRD[0])-8}" y="{Y(9.6)+15}" class="tiny" text-anchor="end">leads</text>')
 # XIAO
 rect(XIAO,"#1f4f8a","#0d2c52",'rx="6" fill-opacity="0.82"')
 cx=(XIAO[0]+XIAO[2])/2
 a(f'<rect x="{X(cx-4.5)}" y="{Y(-1.7)}" width="{9*S}" height="{3.6*S}" rx="6" fill="#bfc5cc" stroke="#555"/>')
 a(f'<text x="{X(cx)}" y="{Y(0.6)}" class="tiny" text-anchor="middle">USB-C</text>')
 a(f'<text x="{X(cx)}" y="{Y(9.8)}" class="lbl" fill="#fff" text-anchor="middle">XIAO</text>')
-a(f'<text x="{X(cx)}" y="{Y(11.4)}" class="tiny" fill="#cfe0ff" text-anchor="middle">17,5 × 21</text>')
+a(f'<text x="{X(cx)}" y="{Y(11.4)}" class="tiny" fill="#cfe0ff" text-anchor="middle">17.5 × 21</text>')
 Ln=["D0/A0","D1","D2","D3","D4","D5","D6"]; Rn=["5V","GND","3V3","D10","D9","D8","D7"]
 for i in range(7):
     for side,names in (("L",Ln),("R",Rn)):
@@ -42,9 +42,9 @@ for i in range(7):
         a(f'<rect x="{X(x)-7}" y="{Y(y)-7}" width="14" height="14" fill="{"#ffd34d" if hot else "#c9a227"}" stroke="#7a5c00"/>')
         a(f'<text x="{X(x)+(11 if side=="L" else -11)}" y="{Y(y)+4}" class="pin" fill="{"#fff" if hot else "#9fb8de"}" text-anchor="{"start" if side=="L" else "end"}" font-weight="{"bold" if hot else "normal"}">{n}</text>')
 a(f'<rect x="{X(cx-3.8)}" y="{Y(15.4)}" width="{7.6*S}" height="{3.2*S}" rx="4" fill="none" stroke="#ff8a80" stroke-width="1.5" stroke-dasharray="4,3"/>')
-a(f'<text x="{X(cx)}" y="{Y(16.8)}" class="tiny" fill="#ffcdd2" text-anchor="middle">BAT+ (Unterseite,</text>')
-a(f'<text x="{X(cx)}" y="{Y(18.1)}" class="tiny" fill="#ffcdd2" text-anchor="middle">Lage prüfen)</text>')
-# Platine
+a(f'<text x="{X(cx)}" y="{Y(16.8)}" class="tiny" fill="#ffcdd2" text-anchor="middle">BAT+ (bottom side,</text>')
+a(f'<text x="{X(cx)}" y="{Y(18.1)}" class="tiny" fill="#ffcdd2" text-anchor="middle">check position)</text>')
+# board
 rect(BRD,"#e6d3a3","#8a7346",'rx="3" fill-opacity="0.82"')
 for c in range(1,8):
     for r in range(1,8):
@@ -59,8 +59,8 @@ for k,c in enumerate((3,4,5,6),1):
     x,y=bp(c,7)
     a(f'<line x1="{X(x)}" y1="{Y(y)}" x2="{X(x)}" y2="{Y(XH[1]+1.4)}" stroke="#b8860b" stroke-width="3"/>')
     a(f'<text x="{X(x)}" y="{Y(XH[3]-1.0)}" class="tiny" text-anchor="middle">{k}</text>')
-a(f'<text x="{X(xc)}" y="{Y(XH[3])+20}" class="sub" text-anchor="middle">▼ FSR-Stecker (XH flach)</text>')
-# Masse
+a(f'<text x="{X(xc)}" y="{Y(XH[3])+20}" class="sub" text-anchor="middle">▼ FSR plug (XH lying flat)</text>')
+# dimensions
 def dh(y,x0,x1,t):
     a(f'<line x1="{X(x0)}" y1="{Y(y)}" x2="{X(x1)}" y2="{Y(y)}" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>')
     a(f'<text x="{(X(x0)+X(x1))/2}" y="{Y(y)-6}" class="dim" text-anchor="middle">{t}</text>')
@@ -69,32 +69,32 @@ def dv(x,y0,y1,t,left=False):
     a(f'<text x="{X(x)+(-6 if left else 6)}" y="{(Y(y0)+Y(y1))/2+4}" class="dim" text-anchor="{"end" if left else "start"}">{t}</text>')
 W_=32-BRD[0]
 dh(-3.6,BRD[0],32,f"≈{W_:.1f} mm")
-dh(XH[3]+4.0,0,32,"Akku 32")
+dh(XH[3]+4.0,0,32,"battery 32")
 dh(XH[3]+4.0,BRD[0],0,f"{-BRD[0]:.1f}")
 dv(34.6,-1.7,XH[3],f"≈{XH[3]+1.7:.0f} mm")
-dv(BRD[0]-4.8,0,PB,"17,8",left=True)
+dv(BRD[0]-4.8,0,PB,"17.8",left=True)
 dv(34.6+0.0,0,0,"")
-a(f'<text x="{X(BRD[0])}" y="{Y(-1.5)}" class="tiny">Lochraster 7×7</text>')
-# Legende
+a(f'<text x="{X(BRD[0])}" y="{Y(-1.5)}" class="tiny">perfboard 7×7</text>')
+# legend
 LX=X(34.6)+120
-items=[("#1f77b4","Pin 1 → D0/A0","≈15 mm, direkt nach rechts"),("#d62728","Pin 8 → D1","≈5 mm, direkt nach rechts"),
-("#222","GND (C4) → GND","unten um den XIAO herum"),("#c2185b","LiPo + → XH-1","Akku-Abgang links, kurz"),
-("#e91e63","XH-4 → BAT+","unter dem XIAO"),("#555","LiPo − → XH-2 (GND)","BAT− = GND, kein Kabel zum Pad")]
-a(f'<text x="{LX}" y="{OY-40}" class="h2">Kabel</text>')
+items=[("#1f77b4","Pin 1 → D0/A0","≈15 mm, straight to the right"),("#d62728","Pin 8 → D1","≈5 mm, straight to the right"),
+("#222","GND (C4) → GND","around the bottom of the XIAO"),("#c2185b","LiPo + → XH-1","battery leads on the left, short"),
+("#e91e63","XH-4 → BAT+","underneath the XIAO"),("#555","LiPo − → XH-2 (GND)","BAT− = GND, no wire to the pad")]
+a(f'<text x="{LX}" y="{OY-40}" class="h2">Cables</text>')
 for i,(c,t1,t2) in enumerate(items):
     yy=OY-16+i*42
     a(f'<rect x="{LX}" y="{yy}" width="26" height="9" rx="3" fill="{c}"/>')
     a(f'<text x="{LX+34}" y="{yy+9}" class="txt" font-weight="bold">{t1}</text>')
     a(f'<text x="{LX+34}" y="{yy+26}" class="sub">{t2}</text>')
 ny=OY-16+6*42+16
-notes=["Dicke wie bisher ≈11–12 mm","(Akku 4 + Schaum 1 + Platine 1,6 + OPV 4).",
-"Platine steht 3,6 mm links über den Akku.","Alternativ XIAO 1,8 mm rechts überstehen",
-"lassen, dann je 1,8 mm auf beiden Seiten."]
+notes=["Thickness ≈11–12 mm","(battery 4 + foam 1 + board 1.6 + op-amp 4).",
+"Board overhangs the battery by 3.6 mm on the left.","Alternatively let the XIAO overhang 1.8 mm",
+"on the right, then 1.8 mm on each side."]
 for i,t in enumerate(notes): a(f'<text x="{LX}" y="{ny+i*19}" class="txt">{t}</text>')
-W=int(LX+300); H=int(Y(XH[3]+7))
+W=int(LX+340); H=int(Y(XH[3]+7))
 svg=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="Helvetica, Arial, sans-serif">',
 '<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#444"/></marker></defs>',
 '<style>.h1{font-size:22px;font-weight:bold}.h2{font-size:17px;font-weight:bold}.sub{font-size:12.5px;fill:#555}.lbl{font-size:15px;font-weight:bold}.pin{font-size:11px}.tiny{font-size:12px}.dim{font-size:13px;font-weight:bold;fill:#333}.txt{font-size:13.5px}</style>',
-f'<rect width="{W}" height="{H}" fill="#fff"/>','<text x="40" y="36" class="h1">Anordnung quer: Akku 32×20, XIAO rechts, Platine links (Draufsicht)</text>',
-f'<text x="40" y="58" class="sub">USB-C oben, XH unten · Akku unter XIAO und Platine · Kabel der Platine auf der Lötseite (zwischen Platine und Akku)</text>']
+f'<rect width="{W}" height="{H}" fill="#fff"/>','<text x="40" y="36" class="h1">Crosswise arrangement: battery 32×20, XIAO right, board left (top view)</text>',
+f'<text x="40" y="58" class="sub">USB-C up, XH down · battery under XIAO and board · board wiring on the solder side (between board and battery)</text>']
 open(sys.argv[1],"w").write("\n".join(svg+out+['</svg>'])); print(W,H, BRD[0], XH[3])

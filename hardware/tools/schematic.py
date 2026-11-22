@@ -11,7 +11,7 @@ vref = r3.end
 r4 = d.add(elm.Resistor().down().label('R4\n10k', loc='bottom'))
 d.add(elm.Ground())
 d.add(elm.Line().right().at(vref).length(1.5))
-d.add(elm.Label().label('VREF ≈ 0,1 V', loc='top'))
+d.add(elm.Label().label('VREF ≈ 0.1 V', loc='top'))
 # ---- U1B FSR stage ----
 opB = d.add(elm.Opamp(leads=True).flip().right().anchor('in2').at((vref[0]+3.0, vref[1])).label('U1B\nMCP602', loc='center', ofst=(0.2,0)))
 d.add(elm.Line().at(vref).to(opB.in2))
@@ -54,7 +54,7 @@ d.add(elm.Dot())
 d.add(elm.Line().left().tox(outA[0]))
 d.add(elm.Line().right().at((outA[0]+1.2, outA[1])).length(1.0))
 d.add(elm.Dot(open=True).label('A0 (XIAO D0)', loc='right'))
-d.add(elm.Label().at((outA[0]+1.0, outA[1]-0.9)).label('≈ 23 Hz, Q ≈ 0,73', loc='right'))
+d.add(elm.Label().at((outA[0]+1.0, outA[1]-0.9)).label('≈ 23 Hz, Q ≈ 0.73', loc='right'))
 
 # ---- Supply block ----
 sx, sy = opA.out[0]+6.5, 4
@@ -71,6 +71,6 @@ d.add(elm.Ground().at((sx, sy-4.0)))
 # ---- Battery switch via J1 ----
 bx, by = sx-0.4, -1.6
 j = d.add(elm.Header(rows=4, pinsright=['1 LiPo+', '2 GND / FSR', '3 FSR / −IN B', '4 → BAT+'], pinalignright='center').at((bx, by)).anchor('pin1').label('J1 JST-XH', loc='top'))
-d.add(elm.Label().at((opA.out[0]-6, -5.6)).label('Im FSR-Stecker: 1–4 gebrückt (Einschalter), 2–3 = FSR', loc='right'))
-d.add(elm.Label().at((opA.out[0]-6, -6.3)).label('LiPo− → GND (XH-2), am XIAO ist BAT− = GND', loc='right'))
+d.add(elm.Label().at((opA.out[0]-6, -5.6)).label('In the FSR plug: 1–4 bridged (power switch), 2–3 = FSR', loc='right'))
+d.add(elm.Label().at((opA.out[0]-6, -6.3)).label('LiPo− → GND (XH-2); on the XIAO, BAT− = GND', loc='right'))
 import sys; d.save(sys.argv[1] if len(sys.argv)>1 else 'schematic.svg')

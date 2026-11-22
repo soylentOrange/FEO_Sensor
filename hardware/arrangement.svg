@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1066" height="573" viewBox="0 0 1066 573" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1106" height="573" viewBox="0 0 1106 573" font-family="Helvetica, Arial, sans-serif">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#444"/></marker></defs>
 <style>.h1{font-size:22px;font-weight:bold}.h2{font-size:17px;font-weight:bold}.sub{font-size:12.5px;fill:#555}.lbl{font-size:15px;font-weight:bold}.pin{font-size:11px}.tiny{font-size:12px}.dim{font-size:13px;font-weight:bold;fill:#333}.txt{font-size:13.5px}</style>
-<rect width="1066" height="573" fill="#fff"/>
-<text x="40" y="36" class="h1">Anordnung quer: Akku 32×20, XIAO rechts, Platine links (Draufsicht)</text>
-<text x="40" y="58" class="sub">USB-C oben, XH unten · Akku unter XIAO und Platine · Kabel der Platine auf der Lötseite (zwischen Platine und Akku)</text>
+<rect width="1106" height="573" fill="#fff"/>
+<text x="40" y="36" class="h1">Crosswise arrangement: battery 32×20, XIAO right, board left (top view)</text>
+<text x="40" y="58" class="sub">USB-C up, XH down · battery under XIAO and board · board wiring on the solder side (between board and battery)</text>
 <rect x="196.54000000000002" y="173.4" width="416.0" height="260.0" fill="#cfd8dc" stroke="#607d8b" stroke-width="1.5" stroke-dasharray="7,4" rx="4"/>
-<text x="209.54000000000002" y="424.3" class="tiny" fill="#455a64">LiPo 32×20×4 quer (darunter)</text>
+<text x="209.54000000000002" y="424.3" class="tiny" fill="#455a64">LiPo 32×20×4 crosswise (underneath)</text>
 <path d="M 232.55 222.93 L 232.55 190.3 L 373.34000000000003 190.3 L 373.34000000000003 204.34 L 399.73 204.34" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
 <path d="M 232.55 222.93 L 232.55 190.3 L 373.34000000000003 190.3 L 373.34000000000003 204.34 L 399.73 204.34" fill="none" stroke="#1f77b4" stroke-width="3" stroke-linejoin="round" />
 <path d="M 331.61 222.93 L 365.54 222.93 L 365.54 237.36 L 399.73 237.36" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
@@ -19,13 +19,13 @@
 <path d="M 196.54000000000002 321.6 L 173.14000000000001 321.6 L 173.14000000000001 395.83000000000004 L 265.57 395.83000000000004 L 265.57 388.03000000000003" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
 <path d="M 196.54000000000002 321.6 L 173.14000000000001 321.6 L 173.14000000000001 395.83000000000004 L 265.57 395.83000000000004 L 265.57 388.03000000000003" fill="none" stroke="#555" stroke-width="3" stroke-linejoin="round" />
 <rect x="188.74" y="290.4" width="18.2" height="44.199999999999996" fill="#90a4ae" stroke="#455a64"/>
-<text x="142.0" y="298.20000000000005" class="tiny" text-anchor="end">Akku-</text>
-<text x="142.0" y="313.20000000000005" class="tiny" text-anchor="end">Abgang</text>
+<text x="142.0" y="298.20000000000005" class="tiny" text-anchor="end">battery</text>
+<text x="142.0" y="313.20000000000005" class="tiny" text-anchor="end">leads</text>
 <rect x="385.04" y="166.9" width="227.5" height="273.0" fill="#1f4f8a" stroke="#0d2c52" stroke-width="1.5" rx="6" fill-opacity="0.82"/>
 <rect x="440.29" y="151.3" width="117.0" height="46.800000000000004" rx="6" fill="#bfc5cc" stroke="#555"/>
 <text x="498.79" y="181.2" class="tiny" text-anchor="middle">USB-C</text>
 <text x="498.79" y="300.8" class="lbl" fill="#fff" text-anchor="middle">XIAO</text>
-<text x="498.79" y="321.6" class="tiny" fill="#cfe0ff" text-anchor="middle">17,5 × 21</text>
+<text x="498.79" y="321.6" class="tiny" fill="#cfe0ff" text-anchor="middle">17.5 × 21</text>
 <rect x="392.73" y="197.34" width="14" height="14" fill="#ffd34d" stroke="#7a5c00"/>
 <text x="410.73" y="208.34" class="pin" fill="#fff" text-anchor="start" font-weight="bold">D0/A0</text>
 <rect x="590.85" y="197.34" width="14" height="14" fill="#c9a227" stroke="#7a5c00"/>
@@ -55,8 +55,8 @@
 <rect x="590.85" y="395.46000000000004" width="14" height="14" fill="#c9a227" stroke="#7a5c00"/>
 <text x="586.85" y="406.46000000000004" class="pin" fill="#9fb8de" text-anchor="end" font-weight="normal">D7</text>
 <rect x="449.39" y="373.6" width="98.8" height="41.6" rx="4" fill="none" stroke="#ff8a80" stroke-width="1.5" stroke-dasharray="4,3"/>
-<text x="498.79" y="391.8" class="tiny" fill="#ffcdd2" text-anchor="middle">BAT+ (Unterseite,</text>
-<text x="498.79" y="408.70000000000005" class="tiny" fill="#ffcdd2" text-anchor="middle">Lage prüfen)</text>
+<text x="498.79" y="391.8" class="tiny" fill="#ffcdd2" text-anchor="middle">BAT+ (bottom side,</text>
+<text x="498.79" y="408.70000000000005" class="tiny" fill="#ffcdd2" text-anchor="middle">check position)</text>
 <rect x="150.0" y="173.4" width="231.14000000000001" height="231.14000000000001" fill="#e6d3a3" stroke="#8a7346" stroke-width="1.5" rx="3" fill-opacity="0.82"/>
 <circle cx="166.51" cy="189.91" r="3" fill="#6b5a3a"/>
 <circle cx="166.51" cy="222.93" r="3" fill="#6b5a3a"/>
@@ -126,42 +126,42 @@
 <text x="298.59000000000003" y="469.54" class="tiny" text-anchor="middle">3</text>
 <line x1="331.61" y1="388.03000000000003" x2="331.61" y2="409.74" stroke="#b8860b" stroke-width="3"/>
 <text x="331.61" y="469.54" class="tiny" text-anchor="middle">4</text>
-<text x="282.08000000000004" y="502.54" class="sub" text-anchor="middle">▼ FSR-Stecker (XH flach)</text>
+<text x="282.08000000000004" y="502.54" class="sub" text-anchor="middle">▼ FSR plug (XH lying flat)</text>
 <line x1="150.0" y1="126.6" x2="612.54" y2="126.6" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
 <text x="381.27" y="120.6" class="dim" text-anchor="middle">≈35.6 mm</text>
 <line x1="196.54000000000002" y1="534.54" x2="612.54" y2="534.54" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
-<text x="404.53999999999996" y="528.54" class="dim" text-anchor="middle">Akku 32</text>
+<text x="404.53999999999996" y="528.54" class="dim" text-anchor="middle">battery 32</text>
 <line x1="150.0" y1="534.54" x2="196.54000000000002" y2="534.54" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
 <text x="173.27" y="528.54" class="dim" text-anchor="middle">3.6</text>
 <line x1="646.3400000000001" y1="151.3" x2="646.3400000000001" y2="482.54" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
 <text x="652.3400000000001" y="320.92" class="dim" text-anchor="start">≈25 mm</text>
 <line x1="87.6" y1="173.4" x2="87.6" y2="404.54" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
-<text x="81.6" y="292.97" class="dim" text-anchor="end">17,8</text>
+<text x="81.6" y="292.97" class="dim" text-anchor="end">17.8</text>
 <line x1="646.3400000000001" y1="173.4" x2="646.3400000000001" y2="173.4" stroke="#444" marker-start="url(#ar)" marker-end="url(#ar)"/>
 <text x="652.3400000000001" y="177.4" class="dim" text-anchor="start"></text>
-<text x="150.0" y="153.9" class="tiny">Lochraster 7×7</text>
-<text x="766.3400000000001" y="110" class="h2">Kabel</text>
+<text x="150.0" y="153.9" class="tiny">perfboard 7×7</text>
+<text x="766.3400000000001" y="110" class="h2">Cables</text>
 <rect x="766.3400000000001" y="134" width="26" height="9" rx="3" fill="#1f77b4"/>
 <text x="800.3400000000001" y="143" class="txt" font-weight="bold">Pin 1 → D0/A0</text>
-<text x="800.3400000000001" y="160" class="sub">≈15 mm, direkt nach rechts</text>
+<text x="800.3400000000001" y="160" class="sub">≈15 mm, straight to the right</text>
 <rect x="766.3400000000001" y="176" width="26" height="9" rx="3" fill="#d62728"/>
 <text x="800.3400000000001" y="185" class="txt" font-weight="bold">Pin 8 → D1</text>
-<text x="800.3400000000001" y="202" class="sub">≈5 mm, direkt nach rechts</text>
+<text x="800.3400000000001" y="202" class="sub">≈5 mm, straight to the right</text>
 <rect x="766.3400000000001" y="218" width="26" height="9" rx="3" fill="#222"/>
 <text x="800.3400000000001" y="227" class="txt" font-weight="bold">GND (C4) → GND</text>
-<text x="800.3400000000001" y="244" class="sub">unten um den XIAO herum</text>
+<text x="800.3400000000001" y="244" class="sub">around the bottom of the XIAO</text>
 <rect x="766.3400000000001" y="260" width="26" height="9" rx="3" fill="#c2185b"/>
 <text x="800.3400000000001" y="269" class="txt" font-weight="bold">LiPo + → XH-1</text>
-<text x="800.3400000000001" y="286" class="sub">Akku-Abgang links, kurz</text>
+<text x="800.3400000000001" y="286" class="sub">battery leads on the left, short</text>
 <rect x="766.3400000000001" y="302" width="26" height="9" rx="3" fill="#e91e63"/>
 <text x="800.3400000000001" y="311" class="txt" font-weight="bold">XH-4 → BAT+</text>
-<text x="800.3400000000001" y="328" class="sub">unter dem XIAO</text>
+<text x="800.3400000000001" y="328" class="sub">underneath the XIAO</text>
 <rect x="766.3400000000001" y="344" width="26" height="9" rx="3" fill="#555"/>
 <text x="800.3400000000001" y="353" class="txt" font-weight="bold">LiPo − → XH-2 (GND)</text>
-<text x="800.3400000000001" y="370" class="sub">BAT− = GND, kein Kabel zum Pad</text>
-<text x="766.3400000000001" y="402" class="txt">Dicke wie bisher ≈11–12 mm</text>
-<text x="766.3400000000001" y="421" class="txt">(Akku 4 + Schaum 1 + Platine 1,6 + OPV 4).</text>
-<text x="766.3400000000001" y="440" class="txt">Platine steht 3,6 mm links über den Akku.</text>
-<text x="766.3400000000001" y="459" class="txt">Alternativ XIAO 1,8 mm rechts überstehen</text>
-<text x="766.3400000000001" y="478" class="txt">lassen, dann je 1,8 mm auf beiden Seiten.</text>
+<text x="800.3400000000001" y="370" class="sub">BAT− = GND, no wire to the pad</text>
+<text x="766.3400000000001" y="402" class="txt">Thickness ≈11–12 mm</text>
+<text x="766.3400000000001" y="421" class="txt">(battery 4 + foam 1 + board 1.6 + op-amp 4).</text>
+<text x="766.3400000000001" y="440" class="txt">Board overhangs the battery by 3.6 mm on the left.</text>
+<text x="766.3400000000001" y="459" class="txt">Alternatively let the XIAO overhang 1.8 mm</text>
+<text x="766.3400000000001" y="478" class="txt">on the right, then 1.8 mm on each side.</text>
 </svg>
