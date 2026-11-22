@@ -133,7 +133,7 @@
 <body>
 <header>
   <h1>FEO-Sensor live</h1>
-  <button id="connect" class="primary"></button>
+  <button id="connect" class="primary" hidden></button>
   <button id="ble" class="primary"></button>
   <button id="record" disabled></button>
   <label><span data-i18n="window"></span>
@@ -160,8 +160,6 @@
 <div id="outs" class="outs" hidden><span data-i18n="outs"></span>
   <label><input type="checkbox" data-bit="0"> <span data-i18n="outRaw"></span></label>
   <label><input type="checkbox" data-bit="1"> <span data-i18n="outStep"></span></label>
-  <label><input type="checkbox" data-bit="2"> <span data-i18n="outSerCsv"></span></label>
-  <label><input type="checkbox" data-bit="3"> <span data-i18n="outSerStep"></span></label>
   <span data-i18n="outsHint"></span></div>
 <main>
   <div class="card t-imu">

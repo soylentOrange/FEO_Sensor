@@ -670,7 +670,7 @@ static void step_store(const struct gait_stride *s)
 
 static void step_print(const struct gait_stride *s)
 {
-	if (!(atomic_get(&outputs) & OUT_SER_STEP)) {
+	if (!IS_ENABLED(CONFIG_PRINTK) || !(atomic_get(&outputs) & OUT_SER_STEP)) {
 		return;
 	}
 	char line[100 + 7 * (GAIT_BINS + 2 * GAIT_PHASES)];
@@ -906,7 +906,7 @@ static uint8_t ser_n;
 static void serial_push(uint32_t t, const double a[3], const double g[3],
 			int32_t fsr_mv, uint16_t range_mv)
 {
-	if (!(atomic_get(&outputs) & OUT_SER_CSV)) {
+	if (!IS_ENABLED(CONFIG_PRINTK) || !(atomic_get(&outputs) & OUT_SER_CSV)) {
 		ser_len = 0;
 		ser_n = 0;
 		return;
