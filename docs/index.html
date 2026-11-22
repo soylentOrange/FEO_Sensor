@@ -157,6 +157,7 @@
   <button data-page="imu" data-i18n="tabImu"></button>
   <button data-page="fw" data-i18n="tabFw"></button>
 </nav>
+<div id="fwOld" class="warn" hidden data-i18n="fwOld"></div>
 <div id="outs" class="outs" hidden><span data-i18n="outs"></span>
   <label><input type="checkbox" data-bit="0"> <span data-i18n="outRaw"></span></label>
   <label><input type="checkbox" data-bit="1"> <span data-i18n="outStep"></span></label>
@@ -493,6 +494,7 @@ const TEXT = {
     dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
     dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
     dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
+    fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „Firmware-Update“ die neueste Version installieren (ab v0.4.0).",
     outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     outsHint: "Akku und Aktivität laufen immer.",
     actMove: "● Bewegung", actStill: "○ ruhig", actRest: "☾ Ruhemodus", actStrides: "DS",
@@ -605,6 +607,7 @@ const TEXT = {
     dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
     dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
     dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
+    fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “Firmware update” (v0.4.0 or later).",
     outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     outsHint: "Battery and activity are always on.",
     actMove: "● moving", actStill: "○ still", actRest: "☾ rest mode", actStrides: "strides",
@@ -1906,10 +1909,11 @@ async function ctrlConnect(svc) {
     await logChr.startNotifications();
   } catch (e) { logChr = null; }
   $("outs").hidden = !ctrlChr;
+  $("fwOld").hidden = !!ctrlChr;
   renderLogStatus();
 }
 function ctrlDisconnected() {
-  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true;
+  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true; $("fwOld").hidden = true;
   renderLogStatus();
 }
 
@@ -2076,7 +2080,7 @@ function renderLogStatus() {
   $("dlRead").disabled = !conn || !logChr || busy || !st.count;
   $("dlReadAll").disabled = $("dlRead").disabled;
   $("dlErase").disabled = !conn || busy;
-  $("dlNote").textContent = !conn ? T("dlNoConn") : f & DL_ST.LOCKED ? T("dlLockedHint")
+  $("dlNote").textContent = bleDev && !ctrlChr ? T("fwOld") : !conn ? T("dlNoConn") : f & DL_ST.LOCKED ? T("dlLockedHint")
     : !(f & DL_ST.VALID) ? T("dlInvalid") : st.count > logN ? T("dlUnread", st.count - logN) : "";
 }
 function renderLog() {
