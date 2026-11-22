@@ -32,10 +32,14 @@ jobs:
       - name: Version bestimmen
         id: ver
         run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          # Image version (MCUboot only knows numbers): from tags like v1.2.3 or v1.2.3-beta.
+          # label: tag without "v" for the file names (keeps a suffix like -beta).
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "version=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}" >> "$GITHUB_OUTPUT"
+            echo "label=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           else
             echo "version=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "label=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: zephyrproject-rtos/action-zephyr-setup@v1
@@ -63,7 +67,7 @@ jobs:
 
       - name: Dateien zusammenstellen
         run: |
-          V=${{ steps.ver.outputs.version }}
+          V=${{ steps.ver.outputs.label }}
           mkdir -p out
           APP=$(dirname $(find build -path '*/zephyr/zephyr.signed.bin' -not -path '*/mcuboot/*' | head -1))
           cp "$APP/zephyr.signed.bin" "out/feo_sensor_v${V}_update.bin"
@@ -80,7 +84,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: feo_sensor_v${{ steps.ver.outputs.version }}
+          name: feo_sensor_v${{ steps.ver.outputs.label }}
           path: out/*
 
       - name: Release anlegen
