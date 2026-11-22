@@ -1,0 +1,19 @@
+/*
+ * Fersenentlastungsorthese: zusätzliche Ein-/Ausgänge
+ *
+ *   A0 (D0, P1.04, AIN0)  Ausgang der FSR-Verstärkerschaltung (MCP602 + Sallen-Key-Tiefpass)
+ *   D1 (P1.05)            Versorgung des MCP602 (GPIO high = an)
+ *   AIN7 (P1.14)          Akkuspannung über den Teiler 1:2 auf dem XIAO,
+ *                         Teiler wird über den Lastschalter "vbat_pwr" (P1.15) zugeschaltet
+ *
+ * Die ADC-Kanäle 0 und 7 sind in der Board-Devicetree schon angelegt
+ * (12 bit, 8-fach Oversampling, interne Referenz 0,9 V). Die Verstärkung
+ * für den FSR-Kanal stellt die Firmware zur Laufzeit um.
+ */
+/ {
+	zephyr,user {
+		io-channels = <&adc 0>, <&adc 7>;
+		io-channel-names = "fsr", "vbat";
+		fsr-pwr-gpios = <&xiao_d 1 GPIO_ACTIVE_HIGH>;
+	};
+};

@@ -1,7 +1,7 @@
 {
-  "name": "XIAO nRF54L15 IMU live",
-  "short_name": "IMU live",
-  "description": "Live view of the LSM6DS3TR-C IMU on the Seeed XIAO nRF54L15 Sense via Bluetooth LE or USB serial.",
+  "name": "FEO-Sensor live (XIAO nRF54L15)",
+  "short_name": "FEO live",
+  "description": "Live view of IMU, force sensor voltage and battery voltage of the heel offloading orthosis sensor (Seeed XIAO nRF54L15 Sense) via Bluetooth LE or USB serial, with force calibration.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
