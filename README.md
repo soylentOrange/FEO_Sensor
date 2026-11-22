@@ -84,8 +84,22 @@ Release builds contain the **MCUboot** bootloader and an **MCUmgr/SMP** service,
 
 **Automatic download in the app:** browsers cannot download release assets directly (no CORS). Therefore each release also publishes the web app together with `fw/latest.json` and the update file on GitHub Pages, and the app offers *Install latest version*. The workflow [`pages.yml`](.github/workflows/pages.yml) also redeploys when `docs/` changes on `main`. One-time setup: *Settings → Pages → Source: GitHub Actions*, and *Settings → Secrets and variables → Actions → Variables*: `DEPLOY_PAGES` = `true`.
 
+#### Signing Key
+
+MCUboot only installs update images that are signed with the key its bootloader was built with.
+
+- **Using the official releases** of this repository (`_factory.hex` + `_update.bin`): you do not need a key. Your board then only accepts updates signed by the maintainer of this repository.
+- **Building yourself or using a fork:** create your own key and store it as the Actions secret `MCUBOOT_SIGNING_KEY` in your fork (*Settings → Secrets and variables → Actions → Secrets*):
+  ```bash
+  pip install imgtool
+  imgtool keygen -k feo_key.pem -t ecdsa-p256
+  ```
+  Paste the whole content of `feo_key.pem` into the secret and keep the file safe offline. **Never commit the private key** (`*.pem` is in `.gitignore`).
+
 > [!WARNING]
-> Without the secret `MCUBOOT_SIGNING_KEY` (PEM, e.g. `imgtool keygen -k key.pem -t ecdsa-p256`), images are signed with MCUboot's public test key, so anyone could install firmware via Bluetooth. Fine for the prototype; set your own key before the board goes to patients. Changing the key later requires flashing the `_factory.hex` via USB again.
+> Without the secret, the workflow signs with MCUboot's **publicly known test key**: anyone within Bluetooth range could then install firmware on the board. Fine for a bench prototype, not for use on patients.
+>
+> A board only accepts updates signed with the key of the `_factory.hex` it was flashed with. After changing the key (or switching between official releases and your own builds), flash the matching `_factory.hex` via USB once.
 
 The PlatformIO build below has no bootloader and no OTA. Flashing it overwrites MCUboot; flash a `_factory.hex` again to get OTA back.
 
