@@ -65,7 +65,7 @@
   .fw .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
   .fw progress { width: 100%; height: 10px; }
   .fw b { font: 600 12px ui-monospace, Menlo, monospace; }
-  @media (max-width: 900px) { main, body[data-page=cal] main, body[data-page=align] main, body[data-page=gait] main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
+  @media (max-width: 900px) { main, body[data-page=cal] main, body[data-page=align] main, body[data-page=gait] main, body[data-page=log] main { grid-template-columns: 1fr; } .c3d { grid-column: 1; grid-row: auto; } }
   @media (max-width: 600px) {
     header { padding: 10px 10px; gap: 8px; } h1 { flex: 1; order: 0; } .lang { order: 1; }
     header > :not(h1):not(.lang) { order: 2; } .spacer { display: none; }
@@ -105,6 +105,21 @@
   body[data-page=cal] main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body[data-page=cal] .fcard canvas { height: 320px; }
   body[data-page=fw] main { grid-template-columns: minmax(0, 1fr); }
+  body:not([data-page=log]) .t-log { display: none; }
+  body[data-page=log] main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dl .row, .dlr .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+  .dl input[type=text], .dl input[type=number], .dlr input[type=number] { font: inherit; width: 7em; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--grid); background: var(--card); color: var(--fg); }
+  .dlr progress { width: 100%; height: 10px; }
+  .t-log canvas { height: 220px; }
+  .dlt table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
+  .dlt th, .dlt td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  .dlt th { font-weight: 600; color: var(--muted); } .dlt .tbl { max-height: 16em; overflow: auto; }
+  .dlt td:first-child, .dlt th:first-child { text-align: left; }
+  .outs { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
+  .outs label { display: inline-flex; gap: 4px; align-items: center; color: var(--fg); }
+  .badge.act-on { border-color: var(--y); }
+  @media (max-width: 900px) { body[data-page=log] main { grid-template-columns: 1fr; } }
   .lang button { padding: 4px 8px; font-size: 12px; }
   .lang button:first-child { border-radius: 6px 0 0 6px; } .lang button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
   .lang button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
@@ -126,6 +141,7 @@
   <button id="pause" disabled></button>
   <span id="status"></span>
   <span id="batBadge" class="badge" hidden></span>
+  <span id="actBadge" class="badge" hidden></span>
   <span class="spacer"></span>
   <span class="lang"><button id="lang-de">DE</button><button id="lang-en">EN</button></span>
 </header>
@@ -135,8 +151,15 @@
   <button data-page="cal" data-i18n="tabCal"></button>
   <button data-page="align" data-i18n="tabAlign"></button>
   <button data-page="gait" data-i18n="tabGait"></button>
+  <button data-page="log" data-i18n="tabLog"></button>
   <button data-page="fw" data-i18n="tabFw"></button>
 </nav>
+<div id="outs" class="outs" hidden><span data-i18n="outs"></span>
+  <label><input type="checkbox" data-bit="0"> <span data-i18n="outRaw"></span></label>
+  <label><input type="checkbox" data-bit="1"> <span data-i18n="outStep"></span></label>
+  <label><input type="checkbox" data-bit="2"> <span data-i18n="outSerCsv"></span></label>
+  <label><input type="checkbox" data-bit="3"> <span data-i18n="outSerStep"></span></label>
+  <span data-i18n="outsHint"></span></div>
 <main>
   <div class="card t-imu">
     <h2><span data-i18n="acc"></span>
@@ -256,6 +279,81 @@
       <th data-i18n="gThPeak"></th><th data-i18n="gThMean"></th><th>LR</th><th>MSt</th><th>TSt</th><th>PSw</th><th data-i18n="gThSw"></th><th></th></tr></thead>
       <tbody id="gTb"></tbody></table></div>
   </div>
+  <div class="card dl t-log">
+    <h2><span data-i18n="dlTitle"></span></h2>
+    <div class="tiles">
+      <div class="tile"><span data-i18n="dlStateL"></span><b id="dlState">–</b></div>
+      <div class="tile"><span data-i18n="dlMemL"></span><b id="dlMem">–</b><span id="dlMemN"></span></div>
+      <div class="tile"><span data-i18n="dlDaysL"></span><b id="dlDays">–</b></div>
+      <div class="tile"><span data-i18n="dlClockL"></span><b id="dlClock">–</b></div>
+    </div>
+    <div class="hint"><span data-i18n="dlSessL"></span> <b id="dlSessT">–</b></div>
+    <div class="row">
+      <label><span data-i18n="dlPseudoL"></span> <input id="dlPseudo" type="text" maxlength="8" autocomplete="off" placeholder="P001"></label>
+      <label><span data-i18n="dlSideL"></span> <select id="dlSide"><option value="2" data-i18n="dlRight"></option>
+        <option value="1" data-i18n="dlLeft"></option><option value="0" data-i18n="dlSideNone"></option></select></label>
+      <label><span data-i18n="dlThrL"></span> <input id="dlThr" type="number" step="0.1" min="0" max="100" value="2" inputmode="decimal"></label>
+      <label><input id="dlEraseFirst" type="checkbox"> <span data-i18n="dlEraseFirstL"></span></label>
+    </div>
+    <div class="row">
+      <button id="dlStart" class="primary" disabled data-i18n="dlStartB"></button>
+      <button id="dlStop" disabled data-i18n="dlStopB"></button>
+      <button id="dlMark" disabled data-i18n="dlMarkB"></button>
+    </div>
+    <div class="hint" id="dlNote"></div>
+    <div class="hint" data-i18n="dlHint"></div>
+  </div>
+  <div class="card dlr t-log">
+    <h2><span data-i18n="dlReadT"></span> <span class="hint" id="dlSrc"></span></h2>
+    <div class="row">
+      <button id="dlRead" disabled data-i18n="dlReadB"></button>
+      <button id="dlReadAll" disabled data-i18n="dlReadAllB"></button>
+      <button id="dlErase" disabled data-i18n="dlEraseB"></button>
+    </div>
+    <progress id="dlProg" max="1" value="0" hidden></progress>
+    <div class="row">
+      <span data-i18n="dlCsvL"></span>
+      <button id="dlCsv-strides" data-i18n="dlCsvS"></button>
+      <button id="dlCsv-minutes" data-i18n="dlCsvM"></button>
+      <button id="dlCsv-hours" data-i18n="dlCsvH"></button>
+      <button id="dlCsv-events" data-i18n="dlCsvE"></button>
+    </div>
+    <div class="row">
+      <button id="dlBin" data-i18n="dlBinB"></button>
+      <button id="dlOpen" data-i18n="dlOpenB"></button>
+      <input id="dlFile" type="file" accept=".bin,application/octet-stream" hidden>
+    </div>
+    <div class="hint" data-i18n="dlReadHint"></div>
+  </div>
+  <div class="card gsum logc t-log">
+    <h2><span data-i18n="dlEval"></span></h2>
+    <div class="row">
+      <label><span data-i18n="dlSessSel"></span> <select id="dlSess"></select></label>
+      <label><span data-i18n="dlThrA"></span> <input id="dlThrA" type="number" step="0.1" min="0" inputmode="decimal" placeholder="2.0" style="width:6em"></label>
+    </div>
+    <div class="hint" id="dlSumInfo"></div>
+    <div class="tiles">
+      <div class="tile"><span data-i18n="dlSumDurL"></span><b id="dlSumDur">–</b></div>
+      <div class="tile"><span data-i18n="gN"></span><b id="dlSumN">–</b></div>
+      <div class="tile f"><span data-i18n="dlSumOverL"></span><b id="dlSumOver">–</b></div>
+      <div class="tile f"><span data-i18n="dlSumPkL"></span><b id="dlSumPk">–</b></div>
+      <div class="tile"><span data-i18n="dlSumMoveL"></span><b id="dlSumMove">–</b></div>
+      <div class="tile"><span data-i18n="dlSumRestL"></span><b id="dlSumRest">–</b></div>
+    </div>
+    <canvas id="dlHc"></canvas>
+    <div class="hint" data-i18n="dlHcHint"></div>
+  </div>
+  <div class="card dlt t-log">
+    <h2><span data-i18n="dlHours"></span></h2>
+    <div class="tbl"><table><thead><tr><th data-i18n="dlThHour"></th><th data-i18n="dlThN"></th><th data-i18n="dlThOver"></th><th>%</th>
+      <th data-i18n="dlThPk"></th><th data-i18n="dlThPkMax"></th><th data-i18n="dlThMove"></th><th data-i18n="dlThRest"></th><th data-i18n="batS"></th></tr></thead>
+      <tbody id="dlHt"></tbody></table></div>
+  </div>
+  <div class="card dlt t-log">
+    <h2><span data-i18n="dlEvents"></span></h2>
+    <div class="tbl"><table><thead><tr><th data-i18n="dlThTime"></th><th data-i18n="dlThEv"></th><th></th></tr></thead>
+      <tbody id="dlEt"></tbody></table></div>
+  </div>
   <div class="card fw logc t-fw">
     <h2><span data-i18n="fw"></span> <span><span data-i18n="fwInst"></span> <b id="fwver">–</b></span></h2>
     <div class="row">
@@ -355,6 +453,38 @@ const TEXT = {
     gTable: "Letzte Doppelschritte", gThStride: "Dauer ms", gThStance: "Stand %", gThPeak: "F max", gThMean: "F Stand", gThSw: "F Schw.",
     gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
     gClearAsk: "Alle Schritte aus der Liste löschen?", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
+    tabLog: "Dauermessung", dlTitle: "Dauermessung im Gerät", dlStateL: "Zustand", dlMemL: "Speicher belegt", dlDaysL: "Platz für ≈ Tage",
+    dlClockL: "Uhrzeit im Gerät", dlSessL: "Laufende Messung:", dlPseudoL: "Pseudonym", dlSideL: "Seite", dlThrL: "Schwelle (kg)",
+    dlLeft: "links", dlRight: "rechts", dlSideNone: "nicht angegeben", dlEraseFirstL: "Speicher vorher löschen",
+    dlStartB: "Messung starten", dlStopB: "Messung beenden", dlMarkB: "Markierung setzen",
+    dlRunning: "läuft", dlStopped: "gestoppt", dlLocked: "gesperrt", dlFull: "voll", dlErasing: p => `lösche … ${p} %`,
+    dlEntries: (n, c) => `${n} von ${c} Einträgen`, dlTimeOk: "gestellt", dlTimeNo: "unbekannt",
+    dlNoConn: "Per Bluetooth verbinden, um die Dauermessung zu steuern. Ausgelesene Daten bleiben im Browser und lassen sich auch ohne Gerät auswerten.",
+    dlLockedHint: "Messen ist gerade nicht möglich: Die Firmware ist noch nicht bestätigt oder ein Update läuft.",
+    dlInvalid: "Der Speicher enthält noch kein Messprotokoll (z. B. nach einem Firmware-Update). Beim Start wird er einmal gelöscht (einige Sekunden).",
+    dlUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen.`, dlNoDev: "nicht verbunden",
+    dlHint: "Das Gerät speichert jeden Doppelschritt (Zeit, Dauer, Standphase, Fersenspitze, Mittel, Kraftstoß), jede Minute (Doppelschritte, Bewegung, Fersenlast im Stehen, Akku) und Ereignisse. Die Uhrzeit stellt die App beim Verbinden. Im Ruhemodus misst das Gerät die Fersenlast alle 5 s. Ein Firmware-Update löscht den Speicher, also vorher auslesen.",
+    dlReadT: "Auslesen und Export", dlReadB: "Neue Daten auslesen", dlReadAllB: "Alles neu auslesen", dlEraseB: "Speicher im Gerät löschen",
+    dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen`,
+    dlChanged: "# Speicher im Gerät wurde inzwischen gelöscht, lese alles neu", dlHave: n => `${n} Einträge im Browser`,
+    dlCsvL: "CSV:", dlCsvS: "Schritte", dlCsvM: "Minuten", dlCsvH: "Stunden", dlCsvE: "Ereignisse",
+    dlBinB: "Rohdaten sichern (.bin)", dlOpenB: "Rohdaten öffnen …",
+    dlReadHint: "Die App liest nur die neuen Einträge nach. Die Rohdaten (.bin) enthalten alles, was das Gerät gespeichert hat, und lassen sich später wieder öffnen.",
+    dlEval: "Auswertung", dlSessSel: "Messung", dlThrA: "Schwelle für die Auswertung (kg)",
+    dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · Schwelle im Gerät ${th} kg · Start ${t}` + (nt ? ` · ${nt} Doppelschritte ohne Uhrzeit` : ""),
+    dlSumDurL: "Dauer (h)", dlSumOverL: "Doppelschritte > Schwelle (%)", dlSumPkL: "Fersenspitze Mittel (kg)", dlSumMoveL: "Minuten mit Bewegung (h)",
+    dlSumRestL: "Stehen mit Last > Schwelle (min)",
+    dlHcHint: "Doppelschritte je Stunde (blau), davon mit Fersenspitze über der Schwelle (orange). „Stehen mit Last“ zählt mit der Schwelle, die beim Start im Gerät eingestellt war.",
+    dlHours: "Stundenwerte", dlThHour: "Stunde", dlThN: "DS", dlThOver: "> Schw.", dlThPk: "F̅ Spitze", dlThPkMax: "F max", dlThMove: "Bew. min", dlThRest: "Stehen min",
+    dlEvents: "Ereignisse (ohne Ruhe/Aktiv, die stehen in der CSV)", dlThTime: "Zeit", dlThEv: "Ereignis",
+    dlPseudoBad: "Pseudonym: 1 bis 8 Zeichen (Buchstaben, Ziffern), keine Namen.", dlThrBad: "Schwelle zwischen 0 und 100 kg angeben.",
+    dlStopAsk: "Dauermessung beenden?", dlEraseAsk: "Alle Messdaten im Gerät löschen?",
+    dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
+    dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
+    dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
+    outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
+    outsHint: "Akku und Aktivität laufen immer.",
+    actMove: "● Bewegung", actStill: "○ ruhig", actRest: "☾ Ruhemodus", actStrides: "DS",
   },
   en: {
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
@@ -429,6 +559,38 @@ const TEXT = {
     gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
     gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
     gClearAsk: "Delete all steps from the list?", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
+    tabLog: "Long-term", dlTitle: "Long-term measurement in the device", dlStateL: "State", dlMemL: "Memory used", dlDaysL: "Room for ≈ days",
+    dlClockL: "Device clock", dlSessL: "Running measurement:", dlPseudoL: "Pseudonym", dlSideL: "Side", dlThrL: "Threshold (kg)",
+    dlLeft: "left", dlRight: "right", dlSideNone: "not specified", dlEraseFirstL: "Erase memory first",
+    dlStartB: "Start measurement", dlStopB: "Stop measurement", dlMarkB: "Set marker",
+    dlRunning: "running", dlStopped: "stopped", dlLocked: "locked", dlFull: "full", dlErasing: p => `erasing … ${p} %`,
+    dlEntries: (n, c) => `${n} of ${c} entries`, dlTimeOk: "set", dlTimeNo: "unknown",
+    dlNoConn: "Connect via Bluetooth to control the long-term measurement. Data read out stays in the browser and can be analysed without the device.",
+    dlLockedHint: "Logging is not possible right now: the firmware is not confirmed yet or an update is running.",
+    dlInvalid: "The memory holds no log yet (e.g. after a firmware update). It is erased once on start (a few seconds).",
+    dlUnread: n => `${n} entries in the device have not been read out yet.`, dlNoDev: "not connected",
+    dlHint: "The device stores every stride (time, duration, stance, heel peak, mean, impulse), every minute (strides, movement, heel load while standing, battery) and events. The app sets the clock when connecting. In rest mode the device samples the heel load every 5 s. A firmware update erases the memory, so read it out first.",
+    dlReadT: "Readout and export", dlReadB: "Read new data", dlReadAllB: "Read everything again", dlEraseB: "Erase device memory",
+    dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s) => `# Long-term: ${n} entries read in ${s} s`,
+    dlChanged: "# Device memory was erased in the meantime, reading everything", dlHave: n => `${n} entries in the browser`,
+    dlCsvL: "CSV:", dlCsvS: "Strides", dlCsvM: "Minutes", dlCsvH: "Hours", dlCsvE: "Events",
+    dlBinB: "Save raw data (.bin)", dlOpenB: "Open raw data …",
+    dlReadHint: "The app only reads the new entries. The raw data (.bin) contains everything the device stored and can be opened again later.",
+    dlEval: "Analysis", dlSessSel: "Measurement", dlThrA: "Threshold for the analysis (kg)",
+    dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · device threshold ${th} kg · start ${t}` + (nt ? ` · ${nt} strides without clock time` : ""),
+    dlSumDurL: "Duration (h)", dlSumOverL: "Strides > threshold (%)", dlSumPkL: "Mean heel peak (kg)", dlSumMoveL: "Minutes with movement (h)",
+    dlSumRestL: "Standing with load > threshold (min)",
+    dlHcHint: "Strides per hour (blue), of which with heel peak above the threshold (orange). “Standing with load” uses the threshold set in the device at start.",
+    dlHours: "Hourly values", dlThHour: "Hour", dlThN: "Strides", dlThOver: "> thr.", dlThPk: "Mean peak", dlThPkMax: "F max", dlThMove: "Move min", dlThRest: "Stand min",
+    dlEvents: "Events (without rest/wake, those are in the CSV)", dlThTime: "Time", dlThEv: "Event",
+    dlPseudoBad: "Pseudonym: 1 to 8 characters (letters, digits), no names.", dlThrBad: "Enter a threshold between 0 and 100 kg.",
+    dlStopAsk: "Stop the long-term measurement?", dlEraseAsk: "Erase all measurement data in the device?",
+    dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
+    dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
+    dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
+    outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
+    outsHint: "Battery and activity are always on.",
+    actMove: "● moving", actStill: "○ still", actRest: "☾ rest mode", actStrides: "strides",
   },
 };
 let lang = localStorage.getItem("feoLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
@@ -444,6 +606,7 @@ function applyLang() {
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
+  logDirty = true; renderLogStatus(); renderOuts();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
 ["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
@@ -474,7 +637,7 @@ $("ble").onclick = async () => {
     bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
     bleDev.addEventListener("gattserverdisconnected", () => {
       log(T("logBleOff")); bleDev = null; batChr = null; calChr = null; $("calWrite").disabled = true; smpDisconnected();
-      dataChr = frameChr = stepChr = null; streamOn = false; alButtons(); $("gLoad").disabled = true;
+      dataChr = frameChr = stepChr = null; streamOn = false; alButtons(); $("gLoad").disabled = true; ctrlDisconnected();
       $("ble").textContent = T("bleOn"); setStatus("stIdle");
     });
     setStatus("stBle");
@@ -492,8 +655,10 @@ $("ble").onclick = async () => {
     } catch (e) { log(T("logBleErr", e.message)); }
     try { calChr = await svc.getCharacteristic(FEO_CAL); await calRead(); } catch (e) { calChr = null; }
     await gaitConnect(svc);
+    await ctrlConnect(svc);
     await smpConnect(server);
     $("ble").textContent = T("bleOff");
+    setStatus("Bluetooth · " + (bleDev.name || "XIAO-FEO"));
     $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
     log(T("logBleOn", bleDev.name || "XIAO-FEO"));
   } catch (e) {
@@ -764,11 +929,12 @@ async function fwInstall(buf) {
   const cur = fwInstalled ? verStr(fwInstalled) : "?";
   if (cur === img.version && !confirm(T("fwSame") + "\n\n" + T("fwAsk", img.version, cur))) return;
   if (cur !== img.version && !confirm(T("fwAsk", img.version, cur))) return;
+  if (devSt && devSt.flags & DL_ST.VALID && devSt.count - logN > 1 && !confirm(T("fwLogWarn", devSt.count - logN))) return;
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
   try {
     // Messdaten-Streaming pausieren: die volle Bandbreite gehört dem Upload
-    for (const c of [dataChr, batChr, stepChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
+    for (const c of [dataChr, batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
     streamOn = false;
     // größte Schreib-Größe finden, die vollständig ankommt (Echo mit passend langem Text)
     try {
@@ -802,7 +968,7 @@ async function fwInstall(buf) {
     if (bleDev && bleDev.gatt.connected) updateStreaming();
     // nach einem Fehler Streaming wieder starten (nach Erfolg startet das Board ohnehin neu)
     if (bleDev && bleDev.gatt.connected)
-      for (const c of [batChr, stepChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
+      for (const c of [batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
   }
 }
 
@@ -1284,6 +1450,8 @@ function frame() {
       $("vsag").textContent = l && Number.isFinite(l[13]) ? fmt(l[13], 0, 5) : "–";
     } else if (page === "gait") {
       renderGait();
+    } else if (page === "log" && logDirty) {
+      renderLog();
     }
     const last = buf[buf.length - 1];
     if (last) {
@@ -1664,16 +1832,358 @@ function renderGait() {
 window.addEventListener("resize", () => { gaitDirty = true; });
 refreshSag();
 
+// ---------- Long-term measurement (log in the device) and switchable outputs ----------
+// FEO_CTRL: read/notify status (44 bytes), write commands; FEO_LOG: readout packets
+// (uint32 index + n x 16-byte entries, n = 0 marks the end). Format see src/datalog.h.
+const FEO_CTRL = "7a1e0017-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_LOG = "7a1e0018-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const DL_ST = { RUN: 1, VALID: 2, ERASING: 4, TIME: 8, LOCKED: 16, FULL: 32 };
+const EV_NAMES = { 1: "START", 2: "STOP", 3: "BOOT", 4: "TIME", 5: "REST", 6: "WAKE", 7: "ZERO", 8: "MARKER", 9: "BAT_LOW", 10: "FULL" };
+let ctrlChr = null, logChr = null, devSt = null;
+let gattQ = Promise.resolve();
+// Web Bluetooth allows one GATT operation at a time: queue them
+function gattOp(fn) { const p = gattQ.then(fn); gattQ = p.catch(() => {}); return p; }
+const u32b = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+async function ctrlCmd(bytes) {
+  if (!ctrlChr) throw new Error(T("dlNoDev"));
+  await gattOp(() => ctrlChr.writeValueWithResponse(new Uint8Array(bytes)));
+}
+function parseStatus(dv) {
+  if (dv.byteLength < 44) return null;
+  const u16 = o => dv.getUint16(o, true), u32 = o => dv.getUint32(o, true);
+  let ps = "";
+  for (let i = 0; i < 8; i++) { const c = dv.getUint8(20 + i); if (c) ps += String.fromCharCode(c); }
+  return { flags: dv.getUint8(1), outputs: u16(2), count: u32(4), cap: u32(8), unix: u32(12), thr: u16(16) / 100,
+           side: dv.getUint8(18), erasePct: dv.getUint8(19), pseudo: ps, sessIdx: u32(28), uptime: u32(32),
+           strides: u32(36), activity: dv.getUint8(40), still: u16(42), at: Date.now() };
+}
+function onStatus(dv) {
+  const s = parseStatus(dv);
+  if (!s) return;
+  devSt = s;
+  renderOuts(); renderLogStatus();
+}
+async function ctrlConnect(svc) {
+  try {
+    ctrlChr = await svc.getCharacteristic(FEO_CTRL);
+    ctrlChr.addEventListener("characteristicvaluechanged", e => onStatus(e.target.value));
+    await ctrlChr.startNotifications();
+    // the app provides the wall-clock time (the device has no real-time clock)
+    await ctrlCmd([1, ...u32b(Math.floor(Date.now() / 1000))]);
+    onStatus(await gattOp(() => ctrlChr.readValue()));
+  } catch (e) { ctrlChr = null; }
+  try {
+    logChr = await svc.getCharacteristic(FEO_LOG);
+    logChr.addEventListener("characteristicvaluechanged", e => logPacket(e.target.value));
+    await logChr.startNotifications();
+  } catch (e) { logChr = null; }
+  $("outs").hidden = !ctrlChr;
+  renderLogStatus();
+}
+function ctrlDisconnected() {
+  ctrlChr = logChr = devSt = null; rd = null; $("outs").hidden = true; $("actBadge").hidden = true;
+  renderLogStatus();
+}
+
+// ----- outputs (transmissions) -----
+function renderOuts() {
+  if (!devSt) return;
+  document.querySelectorAll("#outs input[data-bit]").forEach(cb => {
+    if (!cb.dataset.busy) cb.checked = !!(devSt.outputs & (1 << Number(cb.dataset.bit)));
+  });
+  const b = $("actBadge");
+  b.hidden = false;
+  const act = devSt.activity === 2 ? T("actMove") : devSt.activity === 1 ? T("actStill") : T("actRest");
+  b.textContent = `${act} · ${devSt.strides} ${T("actStrides")}${devSt.flags & DL_ST.RUN ? " · ⏺" : ""}`;
+  b.classList.toggle("act-on", devSt.activity === 2);
+}
+document.querySelectorAll("#outs input[data-bit]").forEach(cb => cb.onchange = async () => {
+  if (!devSt) return;
+  let m = 0;
+  document.querySelectorAll("#outs input[data-bit]").forEach(c => { if (c.checked) m |= 1 << Number(c.dataset.bit); });
+  cb.dataset.busy = 1;
+  try { await ctrlCmd([7, m & 255, m >> 8]); devSt.outputs = m; } catch (e) { log(T("logBleErr", e.message)); }
+  delete cb.dataset.busy; renderOuts();
+});
+
+// ----- readout -----
+let logStore = new Uint8Array(0), logN = 0, rd = null, logParsed = null, logDirty = true;
+function logEnsure(n) {
+  if (logStore.length >= n * 16) return;
+  const b = new Uint8Array(Math.max(n * 16, logStore.length * 2, 4096));
+  b.set(logStore); logStore = b;
+}
+async function logRead(all) {
+  if (!logChr || !devSt) return;
+  if (devSt.flags & DL_ST.ERASING) return;
+  // continue after the last entry we have; re-read it to check that the log is still the same
+  const from = !all && logN > 1 && logN <= devSt.count ? logN - 1 : 0;
+  if (from === 0) { logN = 0; logDirty = true; }
+  rd = { from, expect: from, verify: from > 0, total: devSt.count, t0: performance.now(), n: 0 };
+  $("dlProg").hidden = false; $("dlProg").value = 0; renderLogStatus();
+  try { await ctrlCmd([5, ...u32b(from)]); }
+  catch (e) { rd = null; $("dlProg").hidden = true; log(T("logBleErr", e.message)); }
+}
+function logPacket(dv) {
+  if (!rd || dv.byteLength < 4) return;
+  const idx = dv.getUint32(0, true), n = (dv.byteLength - 4) >> 4;
+  if (idx !== rd.expect) return;
+  if (n === 0) { logDone(); return; }
+  logEnsure(idx + n);
+  const src = new Uint8Array(dv.buffer, dv.byteOffset + 4, n * 16);
+  if (rd.verify) {
+    rd.verify = false;
+    const same = src.slice(0, 16).every((b, i) => b === logStore[idx * 16 + i]);
+    if (!same) { log(T("dlChanged")); rd = null; logRead(true); return; }
+  }
+  logStore.set(src, idx * 16);
+  rd.expect = idx + n; rd.n += n; logN = Math.max(logN, idx + n);
+  $("dlProg").value = rd.total ? Math.min(1, logN / rd.total) : 0;
+  $("dlRead").textContent = T("dlReading", logN, rd.total);
+}
+function logDone() {
+  const s = ((performance.now() - rd.t0) / 1000).toFixed(1);
+  log(T("dlReadDone", rd.n, s));
+  rd = null; $("dlProg").hidden = true; $("dlRead").textContent = T("dlReadB");
+  logDirty = true; logSave(); renderLog(); renderLogStatus();
+}
+function logSave() {
+  try {
+    let s = "";
+    const b = logStore.subarray(0, logN * 16);
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    localStorage.setItem("feoLog", btoa(s));
+  } catch (e) { /* too large for localStorage: keep in memory, use "Save raw data" */ }
+}
+function logLoad(bytes) {
+  logStore = new Uint8Array(bytes.length); logStore.set(bytes); logN = bytes.length >> 4; logDirty = true;
+}
+try { const s = localStorage.getItem("feoLog"); if (s) logLoad(Uint8Array.from(atob(s), c => c.charCodeAt(0))); } catch (e) {}
+
+// ----- parse -----
+// Each power-up starts a new time segment (uptime restarts); events that carry the Unix time
+// link a segment's uptime to the wall clock.
+function parseLog() {
+  const dv = new DataView(logStore.buffer, 0, logN * 16), sessions = [], off = [];
+  let seg = 0, cur = null;
+  const ok = logN > 0 && String.fromCharCode(...logStore.subarray(0, 4)) === "FEOL";
+  if (!ok) return { sessions, ok };
+  const ents = [];
+  for (let i = 1; i < logN; i++) {
+    const o = i * 16, ty = dv.getUint8(o), u16 = k => dv.getUint16(o + k, true), u32 = k => dv.getUint32(o + k, true);
+    if (ty === 1) {
+      seg++;
+      let ps = ""; for (let k = 8; k < 16; k++) { const c = dv.getUint8(o + k); if (c) ps += String.fromCharCode(c); }
+      cur = { idx: i, side: dv.getUint8(o + 1), thr: u16(2) / 100, unix: u32(4), pseudo: ps, seg, strides: [], minutes: [], events: [] };
+      sessions.push(cur);
+      continue;
+    }
+    if (ty === 4 && dv.getUint8(o + 1) === 3) seg++;
+    let e = null;
+    if (ty === 2) e = { k: "s", t: u32(4), flags: dv.getUint8(o + 1), stride: u16(2), stance: u16(8), pk: u16(10) / 100, mean: u16(12) / 100, imp: u16(14) / 100 };
+    else if (ty === 3) e = { k: "m", t: u32(4), move: dv.getUint8(o + 1), strides: u16(2), restS: u16(8), restMax: u16(10) / 100, bat: u16(12), over: u16(14) };
+    else if (ty === 4) {
+      e = { k: "e", t: u32(4), code: dv.getUint8(o + 1), a16: u16(2), unix: u32(8), a32: u32(12) };
+      if (e.unix) off[seg] = e.unix * 1000 - e.t;
+    }
+    if (!e || !cur) continue;
+    e.seg = seg;
+    (e.k === "s" ? cur.strides : e.k === "m" ? cur.minutes : cur.events).push(e);
+  }
+  // wall-clock time in ms, or null if this segment never got the time
+  const ms = e => off[e.seg] !== undefined ? off[e.seg] + e.t : null;
+  sessions.forEach(s => [...s.strides, ...s.minutes, ...s.events].forEach(e => e.ms = ms(e)));
+  return { sessions, ok };
+}
+const pad2 = n => String(n).padStart(2, "0");
+const tsLocal = ms => { if (ms === null) return ""; const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+function hours(s, thr) {
+  const H = new Map(), get = ms => { const d = new Date(ms); d.setMinutes(0, 0, 0); const k = d.getTime();
+    if (!H.has(k)) H.set(k, { t: k, n: 0, over: 0, pkMax: 0, pkSum: 0, moveMin: 0, moveS: 0, restS: 0, bat: 0, min: 0 }); return H.get(k); };
+  s.strides.forEach(x => { if (x.ms === null) return; const h = get(x.ms); h.n++; if (x.pk > thr) h.over++; h.pkMax = Math.max(h.pkMax, x.pk); h.pkSum += x.pk; });
+  s.minutes.forEach(x => { if (x.ms === null) return; const h = get(x.ms - 30000); h.min++; h.moveS += x.move; if (x.move) h.moveMin++;
+    h.restS += x.restS; if (x.bat) h.bat = x.bat; });
+  return [...H.values()].sort((a, b) => a.t - b.t);
+}
+const sideTxt = v => T(v === 1 ? "dlLeft" : v === 2 ? "dlRight" : "dlSideNone");
+function selSession() {
+  if (!logParsed) return null;
+  const i = Number($("dlSess").value);
+  return logParsed.sessions[Number.isFinite(i) ? i : logParsed.sessions.length - 1] || null;
+}
+
+// ----- render -----
+function renderLogStatus() {
+  const st = devSt, f = st ? st.flags : 0, conn = !!(ctrlChr && st);
+  let state = "–";
+  if (conn) state = f & DL_ST.ERASING ? T("dlErasing", st.erasePct) : f & DL_ST.RUN ? T("dlRunning")
+    : f & DL_ST.LOCKED ? T("dlLocked") : f & DL_ST.FULL ? T("dlFull") : T("dlStopped");
+  $("dlState").textContent = state;
+  $("dlMem").textContent = conn ? `${(100 * st.count / st.cap).toFixed(1)} %` : "–";
+  $("dlMemN").textContent = conn ? T("dlEntries", st.count, st.cap) : "";
+  // remaining days: entries per day of the running session, otherwise a typical day
+  // (5000 strides, 1440 minutes, some events)
+  let perDay = 6600;
+  if (conn && f & DL_ST.RUN && logParsed) {
+    const s = logParsed.sessions[logParsed.sessions.length - 1];
+    if (s && s.minutes.length > 60) perDay = (s.strides.length + s.minutes.length + s.events.length) / s.minutes.length * 1440;
+  }
+  $("dlDays").textContent = conn ? ((st.cap - st.count) / perDay).toFixed(1) : "–";
+  $("dlSessT").textContent = conn && f & DL_ST.RUN ? `${st.pseudo || "–"} · ${sideTxt(st.side)} · ${st.thr.toFixed(2)} kg` : "–";
+  $("dlClock").textContent = conn ? (f & DL_ST.TIME ? T("dlTimeOk") : T("dlTimeNo")) : "–";
+  const run = !!(f & DL_ST.RUN), busy = !!(f & DL_ST.ERASING) || !!rd;
+  $("dlStart").disabled = !conn || run || busy || !!(f & DL_ST.LOCKED);
+  $("dlStop").disabled = !conn || !run;
+  $("dlMark").disabled = !conn || !run;
+  $("dlRead").disabled = !conn || !logChr || busy || !st.count;
+  $("dlReadAll").disabled = $("dlRead").disabled;
+  $("dlErase").disabled = !conn || busy;
+  $("dlNote").textContent = !conn ? T("dlNoConn") : f & DL_ST.LOCKED ? T("dlLockedHint")
+    : !(f & DL_ST.VALID) ? T("dlInvalid") : st.count > logN ? T("dlUnread", st.count - logN) : "";
+}
+function renderLog() {
+  if (logDirty) {
+    logDirty = false;
+    logParsed = parseLog();
+    const sel = $("dlSess"), keep = sel.value;
+    sel.innerHTML = logParsed.sessions.map((s, i) =>
+      `<option value="${i}">${i + 1}: ${s.pseudo || "–"} · ${s.unix ? tsLocal(s.unix * 1000).slice(0, 16) : "?"} · ${s.strides.length} ${T("actStrides")}</option>`).join("");
+    if (keep && Number(keep) < logParsed.sessions.length) sel.value = keep;
+    else if (logParsed.sessions.length) sel.value = logParsed.sessions.length - 1;
+    $("dlSrc").textContent = logN ? T("dlHave", logN) : "";
+  }
+  const s = selSession(), fx = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
+  let thr = parseFloat($("dlThrA").value);
+  if (!Number.isFinite(thr)) thr = s ? s.thr : 2;
+  const st = s ? s.strides : [], over = st.filter(x => x.pk > thr).length;
+  const tm = s ? [...s.strides, ...s.minutes, ...s.events].map(e => e.ms).filter(x => x !== null) : [];
+  const dur = tm.length ? (Math.max(...tm) - Math.min(...tm)) / 3600000 : NaN;
+  $("dlSumDur").textContent = fx(dur, 1);
+  $("dlSumN").textContent = st.length || (s ? 0 : "–");
+  $("dlSumOver").textContent = st.length ? fx(100 * over / st.length, 1) : "–";
+  $("dlSumMove").textContent = s ? (s.minutes.filter(m => m.move).length / 60).toFixed(1) : "–";
+  $("dlSumPk").textContent = st.length ? fx(mean(st.map(x => x.pk)), 1) : "–";
+  $("dlSumRest").textContent = s ? (s.minutes.reduce((a, m) => a + m.restS, 0) / 60).toFixed(0) : "–";
+  $("dlSumInfo").textContent = s ? T("dlSessInfo", s.pseudo || "–", sideTxt(s.side), s.thr.toFixed(2),
+    s.unix ? tsLocal(s.unix * 1000) : "?", st.filter(x => x.ms === null).length) : "";
+  const H = s ? hours(s, thr) : [];
+  drawHours(H);
+  $("dlHt").innerHTML = H.map(h => `<tr><td>${tsLocal(h.t).slice(0, 13)}</td><td>${h.n}</td><td>${h.over}</td>` +
+    `<td>${h.n ? (100 * h.over / h.n).toFixed(0) : "–"}</td><td>${h.n ? (h.pkSum / h.n).toFixed(1) : "–"}</td><td>${h.n ? h.pkMax.toFixed(1) : "–"}</td>` +
+    `<td>${h.moveMin}</td><td>${(h.restS / 60).toFixed(0)}</td><td>${h.bat ? (h.bat / 1000).toFixed(2) : "–"}</td></tr>`).join("");
+  $("dlEt").innerHTML = s ? s.events.filter(e => e.code !== 5 && e.code !== 6).slice(-200).reverse().map(e => `<tr><td>${e.ms !== null ? tsLocal(e.ms) : "+" + (e.t / 1000).toFixed(0) + " s"}</td>` +
+    `<td>${EV_NAMES[e.code] || e.code}</td><td>${evDetail(e)}</td></tr>`).join("") : "";
+}
+function evDetail(e) {
+  if (e.code === 1) return (e.a16 / 100).toFixed(2) + " kg";
+  if (e.code === 3) return "reset 0x" + e.a32.toString(16);
+  if (e.code === 7) return e.a16 ? (e.a16 / 10).toFixed(1) + " mV" : "–";
+  if (e.code === 8) return "#" + e.a16;
+  if (e.code === 9) return (e.a16 / 1000).toFixed(2) + " V";
+  return "";
+}
+function drawHours(H) {
+  const [ctx, W, Hh] = canvasCtx($("dlHc")), L = 48, R = 8, Tp = 8, B = 20, pw = W - L - R, ph = Hh - Tp - B;
+  const hi = Math.max(10, ...H.map(h => h.n)) * 1.1, Y = v => Tp + (1 - v / hi) * ph, bw = pw / Math.max(H.length, 1);
+  yAxis(ctx, L, R, W, Y, hi, "");
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const every = Math.ceil(H.length / Math.max(1, pw / 28));
+  H.forEach((h, i) => {
+    const x = L + i * bw + bw * 0.15, w = Math.max(1, bw * 0.7);
+    ctx.fillStyle = css("--z"); ctx.globalAlpha = 0.45; ctx.fillRect(x, Y(h.n), w, Y(0) - Y(h.n));
+    ctx.globalAlpha = 1; ctx.fillStyle = css("--f"); ctx.fillRect(x, Y(h.over), w, Y(0) - Y(h.over));
+    if (i % every === 0) { ctx.fillStyle = css("--muted"); ctx.fillText(new Date(h.t).getHours() + "", x + w / 2, Hh - B + 4); }
+  });
+}
+
+// ----- buttons -----
+$("dlStart").onclick = async () => {
+  const ps = $("dlPseudo").value.trim(), thr = parseFloat($("dlThr").value);
+  if (!/^[\x20-\x7e]{1,8}$/.test(ps)) { alert(T("dlPseudoBad")); return; }
+  if (!(thr >= 0 && thr <= 100)) { alert(T("dlThrBad")); return; }
+  const erase = $("dlEraseFirst").checked;
+  if (erase && devSt && devSt.count > logN && !confirm(T("dlEraseUnread", devSt.count - logN))) return;
+  const b = [2, Math.round(thr * 100) & 255, Math.round(thr * 100) >> 8, Number($("dlSide").value), erase ? 1 : 0];
+  for (let i = 0; i < 8; i++) b.push(i < ps.length ? ps.charCodeAt(i) : 0);
+  try {
+    await ctrlCmd([1, ...u32b(Math.floor(Date.now() / 1000))]);
+    await ctrlCmd(b);
+    localStorage.setItem("feoLogForm", JSON.stringify({ ps, thr, side: $("dlSide").value }));
+    log(T("dlStarted", ps));
+  } catch (e) { log(T("logBleErr", e.message)); }
+};
+$("dlStop").onclick = async () => {
+  if (!confirm(T("dlStopAsk"))) return;
+  try { await ctrlCmd([3]); log(T("dlStoppedLog")); } catch (e) { log(T("logBleErr", e.message)); }
+};
+let markNo = 0;
+$("dlMark").onclick = async () => {
+  markNo++;
+  try { await ctrlCmd([6, markNo & 255, markNo >> 8]); log(T("dlMarked", markNo)); } catch (e) { log(T("logBleErr", e.message)); }
+};
+$("dlErase").onclick = async () => {
+  const unread = devSt ? devSt.count - logN : 0;
+  if (!confirm(unread > 1 ? T("dlEraseUnread", unread) : T("dlEraseAsk"))) return;
+  try { await ctrlCmd([4]); log(T("dlErased")); } catch (e) { log(T("logBleErr", e.message)); }
+};
+$("dlRead").onclick = () => logRead(false);
+$("dlReadAll").onclick = () => logRead(true);
+$("dlSess").onchange = $("dlThrA").oninput = () => renderLog();
+$("dlBin").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([logStore.subarray(0, logN * 16)], { type: "application/octet-stream" }));
+  a.download = `feo_dauermessung_${fileTs()}.bin`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$("dlOpen").onclick = () => $("dlFile").click();
+$("dlFile").onchange = async () => {
+  const f = $("dlFile").files[0]; $("dlFile").value = "";
+  if (!f) return;
+  logLoad(new Uint8Array(await f.arrayBuffer())); logSave(); renderLog(); renderLogStatus();
+};
+function sessCsv(kind) {
+  if (!logParsed || !logParsed.sessions.length) return;
+  let thr = parseFloat($("dlThrA").value);
+  const rows = [];
+  let head;
+  logParsed.sessions.forEach((s, si) => {
+    const pre = [si + 1, s.pseudo, s.side];
+    const th = Number.isFinite(thr) ? thr : s.thr;
+    if (kind === "strides") {
+      head = "session,pseudonym,side,time_local,unix_ms,segment,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,flags";
+      s.strides.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.stride, x.stance, x.pk, x.mean, x.imp, x.flags]));
+    } else if (kind === "minutes") {
+      head = "session,pseudonym,side,end_local,unix_ms_end,segment,t_end_ms,strides,strides_over_device_thr,move_s,rest_load_s,rest_max_kg,bat_mv";
+      s.minutes.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.strides, x.over, x.move, x.restS, x.restMax, x.bat]));
+    } else if (kind === "hours") {
+      head = "session,pseudonym,side,hour_local,threshold_kg,strides,strides_over,pct_over,f_peak_mean_kg,f_peak_max_kg,minutes_logged,minutes_moving,move_s,rest_load_s,bat_mv";
+      hours(s, th).forEach(h => rows.push([...pre, tsLocal(h.t).slice(0, 13), th, h.n, h.over, h.n ? (100 * h.over / h.n).toFixed(1) : "",
+        h.n ? (h.pkSum / h.n).toFixed(2) : "", h.n ? h.pkMax : "", h.min, h.moveMin, h.moveS, h.restS, h.bat || ""]));
+    } else {
+      head = "session,pseudonym,side,time_local,unix_ms,segment,t_ms,event,arg16,arg32";
+      s.events.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, EV_NAMES[x.code] || x.code, x.a16, x.a32]));
+    }
+  });
+  if (!head) return;
+  log(T("logSaved", rows.length, download(head + "\n" + rows.map(r => r.join(",")).join("\n") + "\n", `feo_dauermessung_${kind}_${fileTs()}.csv`)));
+}
+["strides", "minutes", "hours", "events"].forEach(k => $("dlCsv-" + k).onclick = () => sessCsv(k));
+try {
+  const f = JSON.parse(localStorage.getItem("feoLogForm"));
+  if (f) { $("dlPseudo").value = f.ps || ""; $("dlThr").value = f.thr ?? 2; $("dlSide").value = f.side || "2"; }
+} catch (e) {}
+
 // ---------- Seiten (Tabs) ----------
 let page = "imu";
 function setPage(p) {
-  if (!["imu", "cal", "align", "gait", "fw"].includes(p)) p = "imu";
+  if (!["imu", "cal", "align", "gait", "log", "fw"].includes(p)) p = "imu";
   page = p;
   document.body.dataset.page = p;
   document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.page === p));
   try { localStorage.setItem("feo-page", p); } catch (e) {}
   if (location.hash !== "#" + p) history.replaceState(null, "", "#" + p);
-  updateStreaming(); gaitDirty = true;
+  updateStreaming(); gaitDirty = true; logDirty = true;
 }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => setPage(b.dataset.page));
 window.addEventListener("hashchange", () => setPage(location.hash.slice(1)));
@@ -1684,6 +2194,7 @@ setPage(startPage);
 requestAnimationFrame(frame);
 applyLang();
 renderCal();
+renderLogStatus();
 </script>
 </body>
 </html>
