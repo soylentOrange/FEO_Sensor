@@ -460,7 +460,7 @@ const TEXT = {
     gAvg: "Mittel über die letzten", gAll: "alle", gLoad: "Gespeicherte vom Gerät laden", gCsv: "CSV herunterladen", gClear: "Liste leeren",
     gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte.",
     gPhase: "Kraft je Gangphase (Rancho Los Amigos)",
-    gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen.",
+    gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen. Bezug ist immer das Sensorbein (0 % = sein Fersenauftritt, TO = seine Zehenablösung). Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–).",
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
     gTable: "Letzte Doppelschritte", gThStride: "Dauer ms", gThStance: "Stand %", gThPeak: "F max", gThMean: "F Stand", gThSw: "F Schw.",
     gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
@@ -573,7 +573,7 @@ const TEXT = {
     gAvg: "Mean over the last", gAll: "all", gLoad: "Load stored from device", gCsv: "Download CSV", gClear: "Clear list",
     gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides.",
     gPhase: "Force per gait phase (Rancho Los Amigos)",
-    gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg.",
+    gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg. The reference is always the sensor leg (0 % = its initial contact, TO = its toe-off). With a stance below 50 % there is no double support, so LR and PSw are left out (–).",
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
     gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
     gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
@@ -1705,6 +1705,9 @@ function addStep(s) {
   if (last && last.sess === stepSess && s.seq < last.seq && s.t < last.t) { stepSess++; log(T("gNew")); }
   s.sess = stepSess;
   if (stepKeys.has(stepKey(s))) return false;
+  // a phase without samples (LR/PSw when stance < 50 %: no double support) has no force value
+  const pb = phaseBounds(Math.round(s.stride / 10), Math.round(s.stance / 10));
+  PHASES.forEach((_, p) => { if (!(pb[p + 1] > pb[p])) s.phm[p] = s.php[p] = null; });
   stepKeys.add(stepKey(s));
   const vm = videoMs(s.t);
   if (vm !== null && vm >= 0) { s.vid = vId; s.video_ms = vm; }
@@ -1763,8 +1766,8 @@ function phaseBounds(L, Tt) {
   b.push(Tt, Tt + Math.floor(sw / 3), Tt + Math.floor(2 * sw / 3), L);
   return b;
 }
-const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
-const sdev = a => { const m = mean(a); return a.length > 1 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)) : 0; };
+const mean = a => { a = a.filter(Number.isFinite); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; };
+const sdev = a => { a = a.filter(Number.isFinite); const m = mean(a); return a.length > 1 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)) : 0; };
 function selSteps() { const n = Number($("gSel").value); return n ? steps.slice(-n) : steps; }
 function canvasCtx(c) {
   const dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
@@ -1781,18 +1784,30 @@ function yAxis(ctx, L, R, W, Y, hi, unit) {
     ctx.fillText(+v.toFixed(2) + (v === 0 ? "" : unit), L - 6, y);
   }
 }
+// mean phase limits of the selection in % of the gait cycle
+function selBounds(sel) {
+  if (!sel.length) return null;
+  const Ls = Math.round(mean(sel.map(s => s.stride)) / 10), Ts = Math.round(mean(sel.map(s => s.stance)) / 10);
+  return phaseBounds(Ls, Ts).map(x => x / Ls * 100);
+}
 function drawPhases(sel) {
-  const [ctx, W, H] = canvasCtx($("gPh")), L = 48, R = 8, Tp = 8, B = 20, pw = W - L - R, ph = H - Tp - B;
+  const [ctx, W, H] = canvasCtx($("gPh")), L = 48, R = 8, Tp = 16, B = 20, pw = W - L - R, ph = H - Tp - B;
   const m = PHASES.map((_, p) => mean(sel.map(s => s.phm[p]))), sd = PHASES.map((_, p) => sdev(sel.map(s => s.phm[p])));
   const pk = PHASES.map((_, p) => mean(sel.map(s => s.php[p])));
   const hi = Math.max(1, ...pk.filter(Number.isFinite), ...m.map((x, i) => x + sd[i]).filter(Number.isFinite)) * 1.1;
-  const Y = v => Tp + (1 - v / hi) * ph, bw = pw / PHASES.length;
+  // same x axis as the cycle plot: each bar spans its phase (mean limits of the selection)
+  const Y = v => Tp + (1 - v / hi) * ph, X = pct => L + pct / 100 * pw;
+  const b = selBounds(sel) || [0, 2, 10, 30, 50, 60, 73, 87, 100];
   yAxis(ctx, L, R, W, Y, hi, "");
   const col = css("--f");
+  ctx.strokeStyle = css("--fg"); ctx.beginPath(); ctx.moveTo(Math.round(X(b[5])) + .5, Tp); ctx.lineTo(Math.round(X(b[5])) + .5, H - B); ctx.stroke();
+  ctx.fillStyle = css("--muted"); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("TO", X(b[5]) + 3, 2);
+  ctx.textAlign = "center";
+  for (let pct = 0; pct <= 100; pct += 20) ctx.fillText(pct + " %", Math.min(X(pct), W - 16), H - B + 4);
   PHASES.forEach((name, p) => {
-    const x0 = L + p * bw + bw * 0.2, w = bw * 0.6;
-    ctx.fillStyle = css("--muted"); ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(name, x0 + w / 2, H - B + 4);
-    if (!Number.isFinite(m[p])) return;
+    const span = X(b[p + 1]) - X(b[p]), gap = Math.min(2, span / 4), x0 = X(b[p]) + gap, w = span - 2 * gap;
+    if (span > ctx.measureText(name).width + 2) { ctx.fillStyle = css("--muted"); ctx.fillText(name, x0 + w / 2, 2); }
+    if (!(span > 0) || !Number.isFinite(m[p])) return;
     ctx.fillStyle = col; ctx.globalAlpha = p < 5 ? 0.85 : 0.4; ctx.fillRect(x0, Y(m[p]), w, Y(0) - Y(m[p])); ctx.globalAlpha = 1;
     ctx.strokeStyle = css("--fg"); ctx.beginPath(); ctx.moveTo(x0 + w / 2, Y(Math.max(0, m[p] - sd[p]))); ctx.lineTo(x0 + w / 2, Y(m[p] + sd[p])); ctx.stroke();
     ctx.fillStyle = css("--x"); ctx.beginPath(); ctx.arc(x0 + w / 2, Y(pk[p]), 3.5, 0, 2 * Math.PI); ctx.fill();
@@ -1805,15 +1820,16 @@ function drawCycle(sel) {
   const X = pct => L + pct / 100 * pw, Y = v => Tp + (1 - v / hi) * ph;
   yAxis(ctx, L, R, W, Y, hi, "");
   // Phasengrenzen (Mittel der gewählten Schritte)
-  if (sel.length) {
-    const Ls = mean(sel.map(s => s.stride)) / 10, Ts = mean(sel.map(s => s.stance)) / 10;
-    const b = phaseBounds(Math.round(Ls), Math.round(Ts)).map(x => x / Math.round(Ls) * 100);
+  const b = selBounds(sel);
+  if (b) {
     ctx.textAlign = "center"; ctx.textBaseline = "top";
     PHASES.forEach((name, p) => {
       ctx.strokeStyle = css(p === 5 ? "--fg" : "--grid"); ctx.setLineDash(p === 5 ? [] : [3, 3]);
-      ctx.beginPath(); ctx.moveTo(X(b[p]) + .5, Tp); ctx.lineTo(X(b[p]) + .5, H - B); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = css("--muted"); if (p) ctx.fillText(name, (X(b[p]) + X(b[p + 1])) / 2, 2);
+      ctx.beginPath(); ctx.moveTo(Math.round(X(b[p])) + .5, Tp); ctx.lineTo(Math.round(X(b[p])) + .5, H - B); ctx.stroke(); ctx.setLineDash([]);
+      const span = X(b[p + 1]) - X(b[p]);
+      ctx.fillStyle = css("--muted"); if (span > ctx.measureText(name).width + 2) ctx.fillText(name, (X(b[p]) + X(b[p + 1])) / 2, 2);
     });
+    ctx.textAlign = "left"; ctx.fillText("TO", X(b[5]) + 3, H - B - 14);
   }
   ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = css("--muted");
   for (let pct = 0; pct <= 100; pct += 20) ctx.fillText(pct + " %", Math.min(X(pct), W - 16), H - B + 4);
@@ -1835,7 +1851,10 @@ function drawTrend() {
   if (pts.length) { ctx.fillText("#" + pts[0].seq, L + 12, H - B + 4); ctx.fillText("#" + pts[pts.length - 1].seq, W - R - 14, H - B + 4); }
   [["fpk", "--f"], ["lr", "--z"]].forEach(([k, c]) => {
     ctx.strokeStyle = css(c); ctx.lineWidth = 1.5; ctx.beginPath();
-    pts.forEach((s, i) => { const v = k === "lr" ? s.phm[1] : s[k]; i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); });
+    let pen = false;
+    pts.forEach((s, i) => { const v = k === "lr" ? s.phm[1] : s[k];
+      if (!Number.isFinite(v)) { pen = false; return; }
+      pen ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); pen = true; });
     ctx.stroke();
   });
 }
@@ -1856,7 +1875,7 @@ function renderGait() {
   $("gTb").innerHTML = steps.slice(-30).reverse().map(s =>
     `<tr><td>${s.seq}</td><td>${(s.t / 1000).toFixed(1)}</td><td>${s.stride}</td><td>${(100 * s.stance / s.stride).toFixed(0)}</td>` +
     `<td>${s.ms.toFixed(0)}</td><td>${s.fpk.toFixed(1)}</td><td>${s.fmean.toFixed(1)}</td>` +
-    s.phm.slice(1, 5).map(x => `<td>${x.toFixed(1)}</td>`).join("") + `<td>${s.fsw.toFixed(2)}</td>` +
+    s.phm.slice(1, 5).map(x => `<td>${Number.isFinite(x) ? x.toFixed(1) : "–"}</td>`).join("") + `<td>${s.fsw.toFixed(2)}</td>` +
     `<td title="flags">${s.flags & 1 ? "⚠" : ""}${s.flags & 2 ? "" : "auto"}</td></tr>`).join("");
 }
 window.addEventListener("resize", () => { gaitDirty = true; });
