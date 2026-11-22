@@ -98,6 +98,9 @@
   .tile span { display: block; font-size: 11px; color: var(--muted); }
   .tile b { font: 600 18px ui-monospace, Menlo, monospace; }
   .tile.f b { color: var(--f); }
+  .gct table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; margin: 4px 0 8px; }
+  .gct td, .gct th { padding: 2px 6px; text-align: right; border-bottom: 1px solid var(--grid); }
+  .gct td:first-child, .gct th:first-child { text-align: left; }
   .gt table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
   .gt th, .gt td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
   .gt th { font-weight: 600; color: var(--muted); } .gt .tbl { max-height: 16em; overflow: auto; }
@@ -254,12 +257,19 @@
       <div class="tile f"><span data-i18n="gSwing"></span><b id="gtSwing">–</b></div>
     </div>
     <div class="row">
+      <label><span data-i18n="gCond"></span> <input id="gCond" list="gCondList" size="14" autocomplete="off"></label>
+      <datalist id="gCondList"></datalist>
+      <label><span data-i18n="gCondSel"></span> <select id="gCondSel"></select></label>
+    </div>
+    <div class="row">
       <label><span data-i18n="gAvg"></span> <select id="gSel"><option value="10">10</option><option value="30" selected>30</option>
         <option value="100">100</option><option value="0" data-i18n="gAll"></option></select></label>
       <button id="gLoad" disabled data-i18n="gLoad"></button>
       <button id="gCsv" data-i18n="gCsv"></button>
       <button id="gClear" data-i18n="gClear"></button>
     </div>
+    <div class="tbl gct" id="gCondTblW" hidden><table><thead><tr><th data-i18n="gCond"></th><th>n</th><th data-i18n="gCad"></th><th data-i18n="gStance"></th>
+      <th data-i18n="gPeak"></th><th>LR kg</th><th data-i18n="gSwing"></th></tr></thead><tbody id="gCondTbl"></tbody></table></div>
     <div class="hint" data-i18n="gHint"></div>
   </div>
   <div class="card t-gait">
@@ -387,6 +397,7 @@ const $ = id => document.getElementById(id);
 const MAXPTS = 30 * 250;          // Puffer für bis zu 30 s bei 250 Hz
 const buf = [];                   // [t_ms, ax, ay, az, gx, gy, gz, |a|, |ω|, u_fsr_mv, fsr_range_mv, u_bat_mv]
 let port = null, reader = null, keepReading = false, paused = false;
+let recCond = "";
 let recording = null;             // Array von Zeilen oder null
 let rateCount = 0, rateT0 = performance.now(), rateHz = 0;
 
@@ -458,7 +469,10 @@ const TEXT = {
     gTitle: "Schritte (Doppelschritte des Beins mit Sensor)", gN: "Doppelschritte", gCad: "Kadenz (Schritte/min)", gStride: "Doppelschritt (s)",
     gStance: "Standphase (%)", gPeak: "Ferse max. (kg)", gLR: "Loading Response (kg)", gSwing: "Schwungphase (kg)",
     gAvg: "Mittel über die letzten", gAll: "alle", gLoad: "Gespeicherte vom Gerät laden", gCsv: "CSV herunterladen", gClear: "Liste leeren",
-    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte.",
+    gCond: "Bedingung", gCondSel: "Auswertung", gCondAll: "alle Bedingungen", gCondNone: "(ohne)",
+    gCondSugg: ["1 Plattform Gehen", "2 Plattform Stehen", "2 Aufstehen", "3 Ebener Boden", "4 Laufband", "5 Treppe auf", "5 Treppe ab"],
+    gCondSet: c => `# Bedingung: ${c || "(ohne)"}`,
+    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte. Bedingung: vor jedem Test wählen oder eintippen; jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.",
     gPhase: "Kraft je Gangphase (Rancho Los Amigos)",
     gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen. Bezug ist immer das Sensorbein (0 % = sein Fersenauftritt, TO = seine Zehenablösung). Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–).",
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
@@ -571,7 +585,10 @@ const TEXT = {
     gTitle: "Steps (strides of the sensor leg)", gN: "Strides", gCad: "Cadence (steps/min)", gStride: "Stride (s)",
     gStance: "Stance (%)", gPeak: "Heel max (kg)", gLR: "Loading response (kg)", gSwing: "Swing (kg)",
     gAvg: "Mean over the last", gAll: "all", gLoad: "Load stored from device", gCsv: "Download CSV", gClear: "Clear list",
-    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides.",
+    gCond: "Condition", gCondSel: "Show", gCondAll: "all conditions", gCondNone: "(none)",
+    gCondSugg: ["1 Platform walking", "2 Platform standing", "2 Sit to stand", "3 Level ground", "4 Treadmill", "5 Stairs up", "5 Stairs down"],
+    gCondSet: c => `# Condition: ${c || "(none)"}`,
+    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides. Condition: pick or type one before each test; every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.",
     gPhase: "Force per gait phase (Rancho Los Amigos)",
     gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg. The reference is always the sensor leg (0 % = its initial contact, TO = its toe-off). With a stance below 50 % there is no double support, so LR and PSw are left out (–).",
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
@@ -632,6 +649,7 @@ function applyLang() {
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
+  $("gCondList").innerHTML = T("gCondSugg").map(c => `<option value="${c}">`).join("");
   logDirty = true; renderLogStatus(); renderOuts(); vButtons();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
@@ -799,7 +817,7 @@ $("pause").onclick = () => { paused = !paused; $("pause").textContent = T(paused
 
 $("record").onclick = () => {
   if (!recording) {
-    recording = [];
+    recording = []; recCond = condTag();
     updateStreaming();
     $("record").textContent = T("recOff");
     $("record").classList.add("rec");
@@ -811,11 +829,13 @@ $("record").onclick = () => {
     $("record").textContent = T("recOn");
     $("record").classList.remove("rec");
     const ts = fileTs();
-    log(T("logSaved", n, download(csv, `feo_${ts}.csv`)));
+    log(T("logSaved", n, download(csv, `feo_${ts}${recCond}.csv`)));
   }
 };
 
 const CSV_HEAD = "t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv";
+// current test condition as a file name part ("_4_Laufband"), "" if none
+const condTag = () => { const c = ($("gCond") ? $("gCond").value : "").trim(); return c ? "_" + c.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_|_$/g, "") : ""; };
 const fileTs = () => new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
 function download(text, name) {
   const a = document.createElement("a");
@@ -1701,14 +1721,18 @@ $("alAuto").onclick = async () => {
 let steps = [], stepSess = 0, gaitDirty = true;
 const stepKey = s => s.sess + ":" + s.seq, stepKeys = new Set();
 function addStep(s) {
-  const last = steps.length ? steps[steps.length - 1] : null;
-  if (last && last.sess === stepSess && s.seq < last.seq && s.t < last.t) { stepSess++; log(T("gNew")); }
+  // device restarted: the stride does not fit the order (seq and t rise together) of the current series;
+  // older strides loaded later (gaps, "Load stored") fit it and stay in the series
+  if (steps.some(x => x.sess === stepSess && (x.seq < s.seq ? x.t >= s.t : x.seq > s.seq ? x.t <= s.t : x.t !== s.t))) {
+    stepSess++; log(T("gNew"));
+  }
   s.sess = stepSess;
   if (stepKeys.has(stepKey(s))) return false;
   // a phase without samples (LR/PSw when stance < 50 %: no double support) has no force value
   const pb = phaseBounds(Math.round(s.stride / 10), Math.round(s.stance / 10));
   PHASES.forEach((_, p) => { if (!(pb[p + 1] > pb[p])) s.phm[p] = s.php[p] = null; });
   stepKeys.add(stepKey(s));
+  s.cond = condAt(s);
   const vm = videoMs(s.t);
   if (vm !== null && vm >= 0) { s.vid = vId; s.video_ms = vm; }
   // nach seq sortiert einfügen (nachgeladene ältere Datensätze)
@@ -1757,13 +1781,66 @@ $("gClear").onclick = () => {
   steps = []; stepKeys.clear(); gaitDirty = true;
 };
 $("gSel").onchange = () => { gaitDirty = true; };
+// Test condition (e.g. treadmill, level, stairs). Each change is stored with the device time, so strides
+// loaded later from the device also get the condition that was set when they happened.
+const condLog = [];     // { sess, t (device uptime ms), cond }
+function devNowMs() {
+  if (devSt && devSt.uptime) return devSt.uptime + (Date.now() - devSt.at);
+  return steps.length ? steps[steps.length - 1].t + 1 : 0;
+}
+function condAt(s) {
+  for (let i = condLog.length - 1; i >= 0; i--) {
+    const e = condLog[i];
+    if (e.sess < s.sess || (e.sess === s.sess && e.t <= s.t)) return e.cond;
+  }
+  return "";
+}
+$("gCond").onchange = () => {
+  const c = $("gCond").value.trim();
+  condLog.push({ sess: stepSess, t: devNowMs(), cond: c });
+  log(T("gCondSet", c));
+  // in a running long-term measurement, a marker separates the conditions there as well
+  if (ctrlChr && devSt && devSt.flags & DL_ST.RUN) { markNo++; ctrlCmd([6, markNo & 255, markNo >> 8]).catch(() => {}); log(T("dlMarked", markNo)); }
+  if (c) $("gCondSel").value = "*";
+  gaitDirty = true;
+};
+$("gCondSel").onchange = () => { gaitDirty = true; };
+function renderConds() {
+  const conds = [...new Set(steps.map(s => s.cond))], sel = $("gCondSel"), cur = sel.value || "*";
+  sel.innerHTML = `<option value="*">${T("gCondAll")}</option>` +
+    conds.map(c => `<option value="${c.replace(/"/g, "&quot;")}">${c ? c.replace(/</g, "&lt;") : T("gCondNone")}</option>`).join("");
+  sel.value = conds.includes(cur) ? cur : "*";
+  const named = conds.filter(c => c);
+  $("gCondTblW").hidden = !named.length;
+  const f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
+  $("gCondTbl").innerHTML = conds.map(c => {
+    const a = steps.filter(s => s.cond === c);
+    return `<tr><td>${c ? c.replace(/</g, "&lt;") : T("gCondNone")}</td><td>${a.length}</td><td>${f(120000 / mean(a.map(s => s.stride)), 0)}</td>` +
+      `<td>${f(mean(a.map(s => 100 * s.stance / s.stride)), 0)}</td><td>${f(mean(a.map(s => s.fpk)), 1)}</td>` +
+      `<td>${f(mean(a.map(s => s.phm[1])), 1)}</td><td>${f(mean(a.map(s => s.fsw)), 2)}</td></tr>`;
+  }).join("");
+}
 $("gCsv").onclick = () => {
-  const head = ["series", "seq", "t_ic_ms", "stride_ms", "stance_ms", "ms_dps", "ic_dps", "to_dps", "f_peak_kg", "f_mean_kg", "f_imp_kgs",
+  const head = ["series", "condition", "seq", "t_ic_ms", "stride_ms", "stance_ms", "ms_dps", "ic_dps", "to_dps", "f_peak_kg", "f_mean_kg", "f_imp_kgs",
     "t_fpeak_ms", "f_swing_kg", "flags", ...Array.from({ length: BINS }, (_, i) => "f_" + (i * 100 / BINS) + "pct"),
     ...PHASES.map(p => p + "_mean_kg"), ...PHASES.map(p => p + "_max_kg")].join(",");
-  const rows = steps.map(s => [s.sess, s.seq, s.t, s.stride, s.stance, s.ms, s.ic, s.to, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags,
-    ...s.bins, ...s.phm, ...s.php].join(","));
-  log(T("logSaved", steps.length, download(head + "\n" + rows.join("\n") + "\n", `feo_schritte_${fileTs()}.csv`)));
+  const row = s => [s.sess, csvTxt(s.cond), s.seq, s.t, s.stride, s.stance, s.ms, s.ic, s.to, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags,
+    ...s.bins, ...s.phm, ...s.php].join(",");
+  const ts = fileTs(), conds = [...new Set(steps.map(s => s.cond))];
+  // one file per test condition, plus a summary with one line per condition
+  conds.forEach(c => {
+    const a = steps.filter(s => s.cond === c), tag = c ? "_" + c.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_|_$/g, "") : "";
+    log(T("logSaved", a.length, download(head + "\n" + a.map(row).join("\n") + "\n", `feo_schritte_${ts}${tag}.csv`)));
+  });
+  if (conds.some(c => c)) {
+    const f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "";
+    const sh = "condition,strides,cadence_spm,stride_s,stance_pct,f_peak_kg,f_mean_kg,f_swing_kg," + PHASES.map(p => p + "_mean_kg").join(",");
+    const sr = conds.map(c => { const a = steps.filter(s => s.cond === c), st = mean(a.map(s => s.stride));
+      return [csvTxt(c), a.length, f(120000 / st, 1), f(st / 1000, 3), f(mean(a.map(s => 100 * s.stance / s.stride)), 1),
+        f(mean(a.map(s => s.fpk)), 2), f(mean(a.map(s => s.fmean)), 2), f(mean(a.map(s => s.fsw)), 2),
+        ...PHASES.map((_, p) => f(mean(a.map(s => s.phm[p])), 2))].join(","); });
+    log(T("logSaved", conds.length, download(sh + "\n" + sr.join("\n") + "\n", `feo_bedingungen_${ts}.csv`)));
+  }
 };
 // Phasengrenzen wie in der Firmware (src/gait.c), in Messungen ab IC
 function phaseBounds(L, Tt) {
@@ -1773,9 +1850,13 @@ function phaseBounds(L, Tt) {
   b.push(Tt, Tt + Math.floor(sw / 3), Tt + Math.floor(2 * sw / 3), L);
   return b;
 }
+const csvTxt = x => /[",\n]/.test(x || "") ? `"${x.replace(/"/g, '""')}"` : (x || "");
 const mean = a => { a = a.filter(Number.isFinite); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; };
 const sdev = a => { a = a.filter(Number.isFinite); const m = mean(a); return a.length > 1 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)) : 0; };
-function selSteps() { const n = Number($("gSel").value); return n ? steps.slice(-n) : steps; }
+function selSteps() {
+  const c = $("gCondSel").value, n = Number($("gSel").value), a = c === "*" ? steps : steps.filter(s => s.cond === c);
+  return n ? a.slice(-n) : a;
+}
 function canvasCtx(c) {
   const dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
   if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
@@ -1869,6 +1950,7 @@ function renderGait() {
   $("gSrc").textContent = T(bleDev && stepChr ? "gSrcBle" : port ? "gSrcUsb" : "gSrcNone");
   if (!gaitDirty) return;
   gaitDirty = false;
+  renderConds();
   const sel = selSteps(), f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
   const str = mean(sel.map(s => s.stride));
   $("gtN").textContent = steps.length;
@@ -2255,6 +2337,7 @@ function clkNote(devT) {
   while (clk.length && clk[0][0] < now - 20000) clk.shift();
 }
 const clkOffset = () => clk.length ? Math.min(...clk.map(c => c[1])) : null;
+let vCond = "";
 let vStream = null, vRec = null, vChunks = [], vStart = 0, vWall = 0, vFacing = "environment", vOwnRec = false, vId = 0, vTimer = 0;
 // video time (ms) of a device timestamp, null if no video runs or no device clock is known
 function videoMs(devT) {
@@ -2291,7 +2374,7 @@ function vStartRec() {
   vRec.ondataavailable = e => { if (e.data.size) vChunks.push(e.data); };
   vRec.onstart = () => { vStart = performance.now(); vWall = Date.now(); };
   vRec.onstop = vSave;
-  vStart = performance.now(); vWall = Date.now();
+  vStart = performance.now(); vWall = Date.now(); vCond = condTag();
   vRec.start(1000);
   // the raw data recording runs along (CSV with a video_ms column)
   vOwnRec = !recording;
@@ -2311,7 +2394,7 @@ function vSave() {
   const ts = new Date(vWall).toISOString().replace(/[:T]/g, "-").slice(0, 19);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(vChunks, { type }));
-  a.download = `feo_video_${ts}.${ext}`; a.click();
+  a.download = `feo_video_${ts}${vCond}.${ext}`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   const dur = ((performance.now() - vStart) / 1000).toFixed(1);
   vRec = null; vChunks = [];
@@ -2319,9 +2402,9 @@ function vSave() {
   // strides during the video, with their time in the video
   const vs = steps.filter(s => s.vid === vId);
   if (vs.length) {
-    const head = "video_s,seq,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags," + PHASES.map(p => p + "_mean_kg").join(",");
-    const rows = vs.map(s => [(s.video_ms / 1000).toFixed(3), s.seq, s.t, s.stride, s.stance, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags, ...s.phm].join(","));
-    download(head + "\n" + rows.join("\n") + "\n", `feo_video_${ts}_schritte.csv`);
+    const head = "video_s,condition,seq,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags," + PHASES.map(p => p + "_mean_kg").join(",");
+    const rows = vs.map(s => [(s.video_ms / 1000).toFixed(3), csvTxt(s.cond), s.seq, s.t, s.stride, s.stance, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags, ...s.phm].join(","));
+    download(head + "\n" + rows.join("\n") + "\n", `feo_video_${ts}${vCond}_schritte.csv`);
   }
   log(T("vSaved", a.download, dur, vs.length));
   $("vState").textContent = T("vDone", a.download);
