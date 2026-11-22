@@ -119,6 +119,8 @@
   .outs { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
   .outs label { display: inline-flex; gap: 4px; align-items: center; color: var(--fg); }
   .badge.act-on { border-color: var(--y); }
+  .vid video { width: 100%; max-height: 260px; background: #000; border-radius: 6px; display: block; }
+  .vid .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
   @media (max-width: 900px) { body[data-page=log] main { grid-template-columns: 1fr; } }
   .lang button { padding: 4px 8px; font-size: 12px; }
   .lang button:first-child { border-radius: 6px 0 0 6px; } .lang button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
@@ -272,6 +274,16 @@
   <div class="card t-gait">
     <h2><span data-i18n="gTrend"></span></h2>
     <canvas id="gTr"></canvas>
+  </div>
+  <div class="card vid t-gait">
+    <h2><span data-i18n="vTitle"></span> <span class="hint" id="vState"></span></h2>
+    <video id="vPrev" playsinline muted></video>
+    <div class="row">
+      <button id="vCam" data-i18n="vCamOn"></button>
+      <button id="vFlip" disabled data-i18n="vFlipB"></button>
+      <button id="vRec" class="primary" disabled data-i18n="vRecOn"></button>
+    </div>
+    <div class="hint" data-i18n="vHint"></div>
   </div>
   <div class="card gt logc t-gait">
     <h2><span data-i18n="gTable"></span></h2>
@@ -485,6 +497,12 @@ const TEXT = {
     outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     outsHint: "Akku und Aktivität laufen immer.",
     actMove: "● Bewegung", actStill: "○ ruhig", actRest: "☾ Ruhemodus", actStrides: "DS",
+    vTitle: "Video (zeitsynchron)", vCamOn: "Kamera an", vCamOff: "Kamera aus", vFlipB: "Kamera wechseln",
+    vRecOn: "Video + Aufnahme starten", vRecOff: "Video + Aufnahme stoppen",
+    vHint: "Nimmt mit der Handy- oder Laptopkamera ein Video auf und startet gleichzeitig die Aufnahme der Messdaten. Danach werden das Video, die Messdaten-CSV (Spalte video_ms) und die Doppelschritte mit ihrer Zeit im Video (video_s) heruntergeladen. Läuft eine Dauermessung, setzt der Start dort eine Markierung. Zur Kontrolle den Sensor mitfilmen: Die LED blitzt bei jedem Fersenauftritt. Geht in Chrome auf Android und am PC/Mac; auf dem iPhone kann Safari kein Bluetooth.",
+    vRun: s => `Aufnahme läuft · ${s} s`, vDone: f => `gespeichert: ${f}`, vErr: m => "Kamera: " + m,
+    vNoClk: "noch keine Gerätedaten, Zeitbezug fehlt", vStarted: w => "# Video gestartet " + w,
+    vSaved: (f, d, n) => `# Video ${f} gespeichert (${d} s, ${n} Doppelschritte)`,
   },
   en: {
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
@@ -591,6 +609,12 @@ const TEXT = {
     outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     outsHint: "Battery and activity are always on.",
     actMove: "● moving", actStill: "○ still", actRest: "☾ rest mode", actStrides: "strides",
+    vTitle: "Video (synchronised)", vCamOn: "Camera on", vCamOff: "Camera off", vFlipB: "Switch camera",
+    vRecOn: "Start video + recording", vRecOff: "Stop video + recording",
+    vHint: "Records a video with the phone or laptop camera and starts the data recording at the same time. Afterwards the video, the data CSV (column video_ms) and the strides with their time in the video (video_s) are downloaded. If a long-term measurement runs, the start sets a marker there. To check the sync, keep the sensor in view: the LED flashes at every initial contact. Works in Chrome on Android and on desktop; on the iPhone, Safari has no Bluetooth.",
+    vRun: s => `Recording · ${s} s`, vDone: f => `saved: ${f}`, vErr: m => "Camera: " + m,
+    vNoClk: "no device data yet, no time reference", vStarted: w => "# Video started " + w,
+    vSaved: (f, d, n) => `# Video ${f} saved (${d} s, ${n} strides)`,
   },
 };
 let lang = localStorage.getItem("feoLang") || ((navigator.language || "de").startsWith("de") ? "de" : "en");
@@ -606,7 +630,7 @@ function applyLang() {
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
-  logDirty = true; renderLogStatus(); renderOuts();
+  logDirty = true; renderLogStatus(); renderOuts(); vButtons();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
 ["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
@@ -753,6 +777,7 @@ function handleLine(line) {
   const r = p.map(Number);
   if (r.some(Number.isNaN)) return;
   // interne Reihenfolge: t, a, ω, |a|, |ω|, u_fsr, Messbereich, u_bat
+  clkNote(r[0]);
   const v = r.slice(0, 7);
   v.push(Math.hypot(v[1], v[2], v[3]), Math.hypot(v[4], v[5], v[6]), r[7], r[8], r[9]);
   if (r[9] > 0) batMv = r[9];
@@ -763,7 +788,8 @@ function handleLine(line) {
   if (buf.length && v[0] < buf[buf.length - 1][0]) buf.length = 0;   // Board neu gestartet
   buf.push(v);
   if (buf.length > MAXPTS) buf.splice(0, buf.length - MAXPTS);
-  if (recording) recording.push(line + "," + refKgText() + "," + (Number.isFinite(v[12]) ? v[12].toFixed(3) : ""));
+  if (recording) { const vm = videoMs(r[0]);
+    recording.push(line + "," + refKgText() + "," + (Number.isFinite(v[12]) ? v[12].toFixed(3) : "") + "," + (vm ?? "")); }
   rateCount++;
 }
 
@@ -776,7 +802,7 @@ $("record").onclick = () => {
     $("record").textContent = T("recOff");
     $("record").classList.add("rec");
   } else {
-    const csv = CSV_HEAD + ",ref_kg,kg\n" + recording.join("\n") + "\n";
+    const csv = CSV_HEAD + ",ref_kg,kg,video_ms\n" + recording.join("\n") + "\n";
     const n = recording.length;
     recording = null;
     updateStreaming();
@@ -1678,6 +1704,8 @@ function addStep(s) {
   s.sess = stepSess;
   if (stepKeys.has(stepKey(s))) return false;
   stepKeys.add(stepKey(s));
+  const vm = videoMs(s.t);
+  if (vm !== null && vm >= 0) { s.vid = vId; s.video_ms = vm; }
   // nach seq sortiert einfügen (nachgeladene ältere Datensätze)
   let i = steps.length;
   while (i > 0 && steps[i - 1].sess === s.sess && steps[i - 1].seq > s.seq) i--;
@@ -1861,6 +1889,7 @@ function onStatus(dv) {
   const s = parseStatus(dv);
   if (!s) return;
   devSt = s;
+  clkNote(s.uptime);
   renderOuts(); renderLogStatus();
 }
 async function ctrlConnect(svc) {
@@ -2173,6 +2202,97 @@ try {
   const f = JSON.parse(localStorage.getItem("feoLogForm"));
   if (f) { $("dlPseudo").value = f.ps || ""; $("dlThr").value = f.thr ?? 2; $("dlSide").value = f.side || "2"; }
 } catch (e) {}
+
+// ---------- Video in sync with the lab measurement ----------
+// Device time (uptime ms) -> browser time: minimum of (arrival - device time) over the last
+// 20 s of samples (raw data rows, status notifications). The minimum is the sample with the
+// shortest transmission delay; the sliding window follows the drift between the two clocks.
+const clk = [];
+let clkLastT = -1;
+function clkNote(devT) {
+  const now = performance.now();
+  if (devT < clkLastT - 1000) clk.length = 0;      // device restarted
+  clkLastT = devT;
+  clk.push([now, now - devT]);
+  while (clk.length && clk[0][0] < now - 20000) clk.shift();
+}
+const clkOffset = () => clk.length ? Math.min(...clk.map(c => c[1])) : null;
+let vStream = null, vRec = null, vChunks = [], vStart = 0, vWall = 0, vFacing = "environment", vOwnRec = false, vId = 0, vTimer = 0;
+// video time (ms) of a device timestamp, null if no video runs or no device clock is known
+function videoMs(devT) {
+  const o = clkOffset();
+  return vRec && o !== null ? Math.round(devT + o - vStart) : null;
+}
+async function vCamOn() {
+  try {
+    vStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: vFacing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
+    $("vPrev").srcObject = vStream; await $("vPrev").play();
+  } catch (e) { vStream = null; $("vState").textContent = T("vErr", e.message); }
+  vButtons();
+}
+function vCamOff() {
+  if (vRec) return;
+  if (vStream) vStream.getTracks().forEach(t => t.stop());
+  vStream = null; $("vPrev").srcObject = null; vButtons();
+}
+function vButtons() {
+  $("vCam").textContent = T(vStream ? "vCamOff" : "vCamOn");
+  $("vCam").disabled = !!vRec;
+  $("vFlip").disabled = !vStream || !!vRec;
+  $("vRec").disabled = !vStream || typeof MediaRecorder === "undefined";
+  $("vRec").textContent = T(vRec ? "vRecOff" : "vRecOn");
+  $("vRec").classList.toggle("rec", !!vRec);
+  if (!vRec && vStream) $("vState").textContent = clkOffset() === null ? T("vNoClk") : "";
+}
+const vMime = () => ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+  .find(m => MediaRecorder.isTypeSupported(m)) || "";
+function vStartRec() {
+  const mime = vMime();
+  vChunks = []; vId++;
+  vRec = new MediaRecorder(vStream, mime ? { mimeType: mime, videoBitsPerSecond: 4e6 } : {});
+  vRec.ondataavailable = e => { if (e.data.size) vChunks.push(e.data); };
+  vRec.onstart = () => { vStart = performance.now(); vWall = Date.now(); };
+  vRec.onstop = vSave;
+  vStart = performance.now(); vWall = Date.now();
+  vRec.start(1000);
+  // the raw data recording runs along (CSV with a video_ms column)
+  vOwnRec = !recording;
+  if (vOwnRec) $("record").click();
+  if (ctrlChr && devSt && devSt.flags & DL_ST.RUN) { markNo++; ctrlCmd([6, markNo & 255, markNo >> 8]).catch(() => {}); log(T("dlMarked", markNo)); }
+  log(T("vStarted", clkOffset() === null ? T("vNoClk") : ""));
+  vTimer = setInterval(() => { $("vState").textContent = T("vRun", ((performance.now() - vStart) / 1000).toFixed(0)); }, 500);
+  vButtons();
+}
+function vStopRec() {
+  if (!vRec) return;
+  clearInterval(vTimer);
+  vRec.stop();
+}
+function vSave() {
+  const type = vRec.mimeType || "video/webm", ext = type.includes("mp4") ? "mp4" : "webm";
+  const ts = new Date(vWall).toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(vChunks, { type }));
+  a.download = `feo_video_${ts}.${ext}`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  const dur = ((performance.now() - vStart) / 1000).toFixed(1);
+  vRec = null; vChunks = [];
+  if (vOwnRec && recording) $("record").click();
+  // strides during the video, with their time in the video
+  const vs = steps.filter(s => s.vid === vId);
+  if (vs.length) {
+    const head = "video_s,seq,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags," + PHASES.map(p => p + "_mean_kg").join(",");
+    const rows = vs.map(s => [(s.video_ms / 1000).toFixed(3), s.seq, s.t, s.stride, s.stance, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags, ...s.phm].join(","));
+    download(head + "\n" + rows.join("\n") + "\n", `feo_video_${ts}_schritte.csv`);
+  }
+  log(T("vSaved", a.download, dur, vs.length));
+  $("vState").textContent = T("vDone", a.download);
+  vButtons();
+}
+$("vCam").onclick = () => vStream ? vCamOff() : vCamOn();
+$("vFlip").onclick = async () => { vFacing = vFacing === "user" ? "environment" : "user"; vCamOff(); await vCamOn(); };
+$("vRec").onclick = () => vRec ? vStopRec() : vStartRec();
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) $("vCam").disabled = true;
 
 // ---------- Seiten (Tabs) ----------
 let page = "imu";
