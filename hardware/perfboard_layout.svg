@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1508" height="975" viewBox="0 0 1508 975" font-family="Helvetica, Arial, sans-serif">
 <style>.h1{font-size:22px;font-weight:bold}.h2{font-size:17px;font-weight:bold}.sub{font-size:12.5px;fill:#555}.ax{font-size:14px;fill:#555}.lbl{font-size:14px;font-weight:bold}.pin{font-size:12px}.tiny{font-size:11.5px}.tiny2{font-size:11px;font-weight:bold;fill:#333}.smd{font-size:13.5px;font-weight:bold}.txt{font-size:13.5px}.mono{font-size:13.5px;font-family:Menlo,Consolas,monospace}</style>
 <rect width="1508" height="975" fill="#fff"/>
-<text x="40" y="36" class="h1">FSR-Verstärker kompakt: 7×7 Löcher (≈18×18 mm), XIAO per Kabel</text>
-<text x="1468" y="36" class="sub" text-anchor="end">Kanäle getauscht: B (Pin 5–7) = FSR-Stufe, A (Pin 1–3) = Sallen-Key ≈23 Hz → A0</text>
-<text x="80" y="78" class="h2">BESTÜCKUNGSSEITE (oben)</text>
-<text x="80" y="98" class="sub">nur U1 (direkt eingelötet) und XH-Stiftleiste · SMD gestrichelt = Unterseite</text>
+<text x="40" y="36" class="h1">Compact FSR amplifier: 7×7 holes (≈18×18 mm), XIAO connected by wires</text>
+<text x="1468" y="36" class="sub" text-anchor="end">Channels: B (pins 5–7) = FSR stage, A (pins 1–3) = Sallen-Key ≈23 Hz → A0</text>
+<text x="80" y="78" class="h2">COMPONENT SIDE (top)</text>
+<text x="80" y="98" class="sub">only U1 (soldered directly) and XH header · dashed SMD = bottom side</text>
 <rect x="109.0" y="191.0" width="406.0" height="406" rx="5" fill="#e6d3a3" stroke="#8a7346" stroke-width="2"/>
-<text x="312.0" y="141.7" class="sub" text-anchor="middle">▲ oben: Kabel zum XIAO (USB-C zeigt nach oben)</text>
+<text x="312.0" y="141.7" class="sub" text-anchor="middle">▲ top: cables to the XIAO (USB-C points up)</text>
 <text x="138" y="184.04" class="ax" text-anchor="middle">1</text>
 <text x="196" y="184.04" class="ax" text-anchor="middle">2</text>
 <text x="254" y="184.04" class="ax" text-anchor="middle">3</text>
@@ -117,13 +117,13 @@
 <text x="370" y="597.0" class="pin" text-anchor="middle">3:FSR</text>
 <rect x="420.46" y="560.46" width="15.08" height="15.08" fill="#d4af37" stroke="#7a5c00"/>
 <text x="428" y="597.0" class="pin" text-anchor="middle">4:BAT+</text>
-<text x="341.0" y="663.0992125984251" class="lbl" text-anchor="middle">J1  JST-XH B4B-XH-A flach aufgelötet (Pins 90° gebogen), Öffnung nach unten</text>
+<text x="341.0" y="663.0992125984251" class="lbl" text-anchor="middle">J1  JST-XH B4B-XH-A soldered flat (pins bent 90°), opening facing down</text>
 <path d="M 254 641.0992125984251 q 87.0 22 174 0" fill="none" stroke="#c2185b" stroke-width="2.5" stroke-dasharray="5,3"/>
-<text x="490.5748031496063" y="645.0992125984251" class="tiny" fill="#c2185b">Brücke im FSR-Stecker = Ein</text>
-<text x="824" y="78" class="h2">LÖTSEITE (unten, gespiegelt)</text>
-<text x="824" y="98" class="sub">0805, Lötbrücken, 2 Drähte, Kabelanschlüsse · Spalte 1 rechts</text>
+<text x="490.5748031496063" y="645.0992125984251" class="tiny" fill="#c2185b">bridge in FSR plug = on</text>
+<text x="824" y="78" class="h2">SOLDER SIDE (bottom, mirrored)</text>
+<text x="824" y="98" class="sub">0805 parts, solder bridges, 2 wires, cable pads · column 1 on the right</text>
 <rect x="853.0" y="191.0" width="406.0" height="406" rx="5" fill="#d9c08f" stroke="#8a7346" stroke-width="2"/>
-<text x="1056.0" y="141.7" class="sub" text-anchor="middle">▲ oben: Kabel zum XIAO (USB-C zeigt nach oben)</text>
+<text x="1056.0" y="141.7" class="sub" text-anchor="middle">▲ top: cables to the XIAO (USB-C points up)</text>
 <text x="1230" y="184.04" class="ax" text-anchor="middle">1</text>
 <text x="1172" y="184.04" class="ax" text-anchor="middle">2</text>
 <text x="1114" y="184.04" class="ax" text-anchor="middle">3</text>
@@ -345,42 +345,42 @@
 <circle cx="1114" cy="568" r="24.36" fill="none" stroke="#c2185b" stroke-width="3" stroke-dasharray="5,3"/>
 <circle cx="1056" cy="568" r="24.36" fill="none" stroke="#222222" stroke-width="3" stroke-dasharray="5,3"/>
 <circle cx="940" cy="568" r="24.36" fill="none" stroke="#e91e63" stroke-width="3" stroke-dasharray="5,3"/>
-<text x="40" y="721" class="h2">Kabel (Lötseite, gestrichelte Kreise)</text>
+<text x="40" y="721" class="h2">Cables (solder side, dashed circles)</text>
 <rect x="40" y="734" width="26" height="9" rx="3" fill="#d62728"/>
-<text x="74" y="745" class="txt"><tspan font-weight="bold">XIAO D1</tspan> ← an Pin 8 (B6)</text>
+<text x="74" y="745" class="txt"><tspan font-weight="bold">XIAO D1</tspan> ← to pin 8 (B6)</text>
 <rect x="40" y="755" width="26" height="9" rx="3" fill="#1f77b4"/>
-<text x="74" y="766" class="txt"><tspan font-weight="bold">XIAO A0 (D0)</tspan> ← an Pin 1 (B3)</text>
+<text x="74" y="766" class="txt"><tspan font-weight="bold">XIAO A0 (D0)</tspan> ← to pin 1 (B3)</text>
 <rect x="40" y="776" width="26" height="9" rx="3" fill="#222222"/>
-<text x="74" y="787" class="txt"><tspan font-weight="bold">XIAO GND</tspan> ← an GND-Brückenkette (C4)</text>
+<text x="74" y="787" class="txt"><tspan font-weight="bold">XIAO GND</tspan> ← to GND bridge chain (C4)</text>
 <rect x="40" y="797" width="26" height="9" rx="3" fill="#c2185b"/>
-<text x="74" y="808" class="txt"><tspan font-weight="bold">LiPo +</tspan> ← an XH-Pin 1 (G3)</text>
+<text x="74" y="808" class="txt"><tspan font-weight="bold">LiPo +</tspan> ← to XH pin 1 (G3)</text>
 <rect x="40" y="818" width="26" height="9" rx="3" fill="#222222"/>
-<text x="74" y="829" class="txt"><tspan font-weight="bold">LiPo −</tspan> ← an XH-Pin 2 (GND) (G4)</text>
+<text x="74" y="829" class="txt"><tspan font-weight="bold">LiPo −</tspan> ← to XH pin 2 (GND) (G4)</text>
 <rect x="40" y="839" width="26" height="9" rx="3" fill="#e91e63"/>
-<text x="74" y="850" class="txt"><tspan font-weight="bold">XIAO BAT+</tspan> ← an XH-Pin 4 (G6)</text>
-<text x="40" y="871" class="txt">BAT− ist am XIAO = GND: LiPo − kommt an die Platinen-GND (XH-2),</text>
-<text x="40" y="892" class="txt">der Akkustrom fließt über das GND-Kabel zum XIAO zurück.</text>
-<text x="600" y="721" class="h2">Bestückungsliste</text>
-<text x="600" y="745" class="mono">U1   MCP602-I/P (DIP-8), direkt eingelötet</text>
-<text x="600" y="766" class="mono">R1, R2  100 kΩ 0805 1 % (fg ≈23 Hz, Q≈0,73)</text>
+<text x="74" y="850" class="txt"><tspan font-weight="bold">XIAO BAT+</tspan> ← to XH pin 4 (G6)</text>
+<text x="40" y="871" class="txt">BAT− on the XIAO is GND: LiPo − goes to board GND (XH-2),</text>
+<text x="40" y="892" class="txt">the battery current returns to the XIAO through the GND wire.</text>
+<text x="600" y="721" class="h2">Bill of materials</text>
+<text x="600" y="745" class="mono">U1   MCP602-I/P (DIP-8), soldered directly</text>
+<text x="600" y="766" class="mono">R1, R2  100 kΩ 0805 1 % (fc ≈23 Hz, Q≈0.73)</text>
 <text x="600" y="787" class="mono">R3  330 kΩ 0805      R4  10 kΩ 0805</text>
-<text x="600" y="808" class="mono">Rf  12 kΩ 0805 (U_out ≤1,7 V ab R_FSR ≥ 0,73 kΩ)</text>
+<text x="600" y="808" class="mono">Rf  12 kΩ 0805 (U_out ≤1.7 V for R_FSR ≥ 0.73 kΩ)</text>
 <text x="600" y="829" class="mono">C1 100 nF X7R   C2  47 nF X7R (0805)</text>
-<text x="600" y="850" class="mono">C3  100 nF 0805 X7R (Abblock-C)</text>
-<text x="600" y="871" class="mono">J1  JST-XH B4B-XH-A, flach aufgelötet</text>
-<text x="600" y="892" class="mono">Lochraster 7×7 Löcher ≈ 18×18 mm</text>
-<text x="600" y="913" class="mono">6 Litzen (AWG 28–30) zum XIAO/LiPo</text>
-<text x="1020" y="721" class="h2">Netze</text>
+<text x="600" y="850" class="mono">C3  100 nF 0805 X7R (decoupling)</text>
+<text x="600" y="871" class="mono">J1  JST-XH B4B-XH-A, soldered flat</text>
+<text x="600" y="892" class="mono">Perfboard 7×7 holes ≈ 18×18 mm</text>
+<text x="600" y="913" class="mono">6 stranded wires (AWG 28–30) to XIAO/LiPo</text>
+<text x="1020" y="721" class="h2">Nets</text>
 <rect x="1020" y="734" width="26" height="9" rx="3" fill="#d62728"/>
 <text x="1054" y="745" class="txt"><tspan font-weight="bold">VDD</tspan>  Pin 8, R3, C3 ← XIAO D1</text>
 <rect x="1020" y="755" width="26" height="9" rx="3" fill="#222222"/>
 <text x="1054" y="766" class="txt"><tspan font-weight="bold">GND</tspan>  Pin 4, R4, C2, C3, XH-2</text>
 <rect x="1020" y="776" width="26" height="9" rx="3" fill="#9467bd"/>
-<text x="1054" y="787" class="txt"><tspan font-weight="bold">VREF</tspan>  ≈0,1 V: R3/R4 → Pin 5</text>
+<text x="1054" y="787" class="txt"><tspan font-weight="bold">VREF</tspan>  ≈0.1 V: R3/R4 → pin 5</text>
 <rect x="1020" y="797" width="26" height="9" rx="3" fill="#2ca02c"/>
 <text x="1054" y="808" class="txt"><tspan font-weight="bold">INF-</tspan>  Pin 6: Rf, FSR (XH-3)</text>
 <rect x="1020" y="818" width="26" height="9" rx="3" fill="#ff7f0e"/>
-<text x="1054" y="829" class="txt"><tspan font-weight="bold">OUTF</tspan>  Pin 7 (FSR-Stufe, ≤1,7 V) → Rf, R1</text>
+<text x="1054" y="829" class="txt"><tspan font-weight="bold">OUTF</tspan>  Pin 7 (FSR stage, ≤1.7 V) → Rf, R1</text>
 <rect x="1020" y="839" width="26" height="9" rx="3" fill="#8c564b"/>
 <text x="1054" y="850" class="txt"><tspan font-weight="bold">X</tspan>  Sallen-Key: R1, R2, C1</text>
 <rect x="1020" y="860" width="26" height="9" rx="3" fill="#11a3b5"/>

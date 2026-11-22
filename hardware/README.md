@@ -4,7 +4,7 @@ Analog front end for the 30 mm FSR: a non-inverting stage with V_ref ≈ 0.1 V, 
 
 The perfboard is a separate 7 × 7 hole board (≈ 18 × 18 mm). It is connected to the XIAO with wires only. The 4-pin JST-XH connector carries the FSR (middle pins) and also acts as the power switch: its outer pins are in series with the LiPo plus lead, and the FSR plug bridges them.
 
-Drawings are labelled in German. The scripts in [`tools/`](tools) regenerate them; `perfboard_layout.py` also checks the wiring against the netlist.
+The scripts in [`tools/`](tools) regenerate them; `perfboard_layout.py` also checks the wiring against the netlist.
 
 ## Schematic
 
