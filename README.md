@@ -10,7 +10,7 @@ Sensor firmware and browser app for a heel offloading orthosis ("Fersenentlastun
 - the output voltage of a force sensor (FSR) amplifier at A0, with automatic ADC range switching,
 - the battery voltage (once per second).
 
-The web app shows everything live via **Bluetooth LE** or **USB serial**, records CSV, and has a **force–voltage calibration** panel (reference weight per point, averaged voltage, CSV export).
+The web app shows everything live via **Bluetooth LE**, records CSV, and has a **force–voltage calibration** panel (reference weight per point, averaged voltage, CSV export).
 
 **Web app:** <https://soylentorange.github.io/FEO_Sensor/> (Chrome or Edge on desktop and Android, installable as an app; published by the release workflow, see [Firmware Updates](#firmware-updates-over-bluetooth-ota)). `docs/index.html` also works opened from disk.
 
@@ -49,7 +49,7 @@ The web app shows everything live via **Bluetooth LE** or **USB serial**, record
 - **Sensor:** LSM6DS3TR-C on the XIAO nRF54L15 Sense (I²C, Zephyr driver `lsm6dsl`), ±16 g and ±2000 °/s, internal rate 208 Hz, output 100 Hz.
 - **Force sensor:** 30 mm FSR in a transimpedance amplifier (MCP602, V_ref ≈ 0.1 V) with a Sallen-Key low-pass (~23 Hz), output to A0. The SAADC switches its gain automatically (see below).
 - **Battery:** LiPo, measured via the on-board 1:2 divider at AIN7. The divider is switched on only for the measurement.
-- **Firmware:** Zephyr (PlatformIO, or west with MCUboot for releases). Streams every sample over USB serial (CSV) and, on request, over BLE; detects strides and the force per gait phase on its own; sleeps when the leg is still.
+- **Firmware:** Zephyr (PlatformIO, or west with MCUboot for releases). Streams samples over BLE on request (the serial console is off); detects strides and the force per gait phase on its own; sleeps when the leg is still.
 - **Web app:** a single HTML file without external dependencies. Uses Web Bluetooth and Web Serial, a Madgwick filter for orientation, and a small 3D model derived from the Seeed STEP model.
 
 ## Hardware
@@ -138,7 +138,7 @@ The rotation axis comes from the [sensor alignment](#sensor-alignment). Without 
 - **Raw data** (IMU + FSR, `7a1e0012`) is only sent while the app subscribes to it. The app does this only on the IMU, Calibration and Alignment tabs and during a recording. Steps are always sent on their own characteristic.
 - **Advertising** runs at 100–150 ms for 30 s after power-on or disconnect, then at about 1 s.
 - **LED:** off at rest; a short dim flash at 2 Hz while movement is detected; a longer, brighter flash at every initial contact.
-- The console UART only transmits (`disable-rx`).
+- The **serial console is off** (`uart20` disabled, no `printk`): the sensor talks only via Bluetooth. Flashing over USB goes through the SWD debugger on the XIAO and still works. For debugging output, remove the console block at the end of `zephyr/prj.conf` and the `uart20` node in `zephyr/app.overlay`; the serial formats below then apply again.
 - While a long-term measurement runs, the rest mode switches the amplifier on for 50 ms every 5 s to sample the heel load (standing with load).
 
 ### Long-term Measurement
@@ -158,7 +158,7 @@ Storage is the secondary image slot (`slot1_partition`, 712 KB, of which 704 KB 
 
 ### Switchable Outputs
 
-Raw data (BLE), stride records (BLE), serial CSV and serial `#S` lines can be switched off individually (stored in flash). Serial CSV costs power during a long-term measurement, so switch it off for everyday use. Battery and the status/activity notification are always on while connected.
+Raw data (BLE) and stride records (BLE) can be switched off individually (stored in flash); the mask also has bits for the serial CSV and `#S` lines, which only matter in a debug build with the console enabled. Battery and the status/activity notification are always on while connected.
 
 ### Building and Flashing
 
@@ -191,7 +191,7 @@ The LED blinks slowly while advertising and fast while a BLE client is connected
 
 ### Data Formats
 
-**USB serial** (115200 baud), one line per sample; lines starting with `#` are comments:
+**USB serial** (only in a debug build with the console enabled, 115200 baud), one line per sample; lines starting with `#` are comments:
 
 ```text
 t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
@@ -232,11 +232,11 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 
 ### Features
 
-- Connect via **Bluetooth LE** or **USB serial**
+- Connect via **Bluetooth LE** (the USB serial connection is hidden because the firmware no longer uses the console)
 - Six tabs: **Steps** (lab measurement: strides and force per gait phase, video), **Long-term** (measurement in the device), **Alignment** (sensor axes on the shank), **Calibration** (force sensor, kg display, calibration points, coefficients), **IMU** (plots and 3D view) and **Firmware update**. Connection, recording, battery and activity badges, output switches and log stay visible on every tab; the last tab is remembered and can be linked directly (`#gait`, `#log`, `#align`, `#cal`, `#imu`, `#fw`)
 - **Activity badge** in the header (Bluetooth): moving / still / rest mode, strides since power-up and ⏺ while a long-term measurement runs; it flashes orange at every stride
 - **Long-term:** start/stop with pseudonym, side and threshold, markers, readout, analysis and CSV export (see [below](#long-term-measurement-tab))
-- **Outputs:** switch raw data, stride records and the serial outputs on and off
+- **Outputs:** switch raw data and stride records on and off
 - **Video in sync** (Steps tab): records a video with the phone or laptop camera together with the data recording. Device time is mapped to browser time from the incoming samples (minimum delay over a 20 s window), so the data CSV gets a `video_ms` column and a separate CSV lists the strides with their time in the video (`video_s`). The sensor LED flashes at every initial contact, which can be used to check the sync in the video. Needs Chrome on Android or desktop (Web Bluetooth + MediaRecorder); not available on the iPhone
 - **Steps:** cadence, stride and stance time, heel force; bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s

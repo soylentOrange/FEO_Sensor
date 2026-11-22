@@ -10,8 +10,9 @@
  * (12 bit, 8-fach Oversampling, interne Referenz 0,9 V). Die Verstärkung
  * für den FSR-Kanal stellt die Firmware zur Laufzeit um.
  *
- * Die serielle Schnittstelle (Konsole) sendet nur; ohne Empfänger spart der
- * UARTE Strom. Der Aufwach-Interrupt der IMU (INT1 an P0.02) ist in der
+ * The serial console (UART20) is disabled: the sensor talks only via Bluetooth,
+ * which saves the UARTE current. Flashing over USB uses the SWD debugger on the
+ * XIAO and is not affected. Der Aufwach-Interrupt der IMU (INT1 an P0.02) ist in der
  * Board-Devicetree als irq-gpios eingetragen.
  */
 / {
@@ -23,5 +24,5 @@
 };
 
 &uart20 {
-	disable-rx;
+	status = "disabled";
 };
