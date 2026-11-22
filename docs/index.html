@@ -54,6 +54,11 @@
   .cal .tbl { max-height: 11em; overflow: auto; }
   .bat-low { color: var(--x); }
   .fcard { align-self: start; }
+  .kgrow { align-items: center; }
+  .kg { font-size: 28px; font-weight: 600; color: var(--f); }
+  .card h2 .kg b { font: 700 28px ui-monospace, Menlo, monospace; }
+  #coefTxt { white-space: normal; }
+  .kgrow button { padding: 2px 10px; font-size: 12px; font-weight: 400; }
   .badge { font: 600 13px ui-monospace, Menlo, monospace; padding: 4px 10px; border-radius: 12px;
            border: 1px solid var(--grid); background: var(--card); white-space: nowrap; }
   .badge.bat-low { border-color: var(--x); }
@@ -128,6 +133,10 @@
       <span class="sf">U <b id="vfsr">–</b> mV</span><span><span data-i18n="range"></span> <b id="vrange">–</b></span>
       <span><span data-i18n="bat"></span> <b id="vbat">–</b></span>
     </h2>
+    <h2 class="kgrow"><span class="kg"><b id="vkg">–</b> kg</span>
+      <button id="zeroFsr" data-i18n="zeroFsr" data-i18n-title="zeroFsrT"></button>
+      <span class="hint" id="vref"></span>
+    </h2>
     <canvas id="fsrc"></canvas>
   </div>
   <div class="card cal">
@@ -148,6 +157,15 @@
     <div class="tbl"><table><thead><tr><th>#</th><th>kg</th><th>U̅ mV</th><th>σ mV</th><th>n</th><th data-i18n="rangeS"></th><th data-i18n="batS"></th></tr></thead>
       <tbody id="calt"></tbody></table></div>
     <div class="hint" data-i18n="calHint"></div>
+    <h2 style="margin-top:10px"><span data-i18n="coef"></span></h2>
+    <div class="hint"><b id="coefTxt">–</b></div>
+    <div class="row">
+      <label>Rf (Ω) <input id="rfIn" type="number" step="100" min="100" value="12000"></label>
+      <button id="calFit" data-i18n="calFit"></button>
+      <button id="calWrite" data-i18n="calWrite" disabled></button>
+      <button id="calFactory" data-i18n="calFactory"></button>
+    </div>
+    <div class="hint" id="fitTxt"></div>
   </div>
   <div class="card fw logc">
     <h2><span data-i18n="fw"></span> <span><span data-i18n="fwInst"></span> <b id="fwver">–</b></span></h2>
@@ -198,6 +216,14 @@ const TEXT = {
     calAsk: "Alle Kalibrierpunkte löschen?",
     calHint: "Gewicht auflegen, ruhig halten, Gewicht eintragen und „Messpunkt übernehmen“. Die Punkte bleiben im Browser gespeichert. Die laufende Aufnahme oben enthält zusätzlich das eingetragene Referenzgewicht in jeder Zeile.",
     logCal: (k, m, s) => `# Messpunkt ${k} kg: ${m} mV (σ ${s} mV)`,
+    over: "Überlast", zeroFsr: "Nullen", zeroFsrT: "Aktuellen Ruhewert (1 s Mittel) als Nullpunkt V_ref übernehmen – Sensor dabei unbelastet lassen",
+    vrefSrc: (v, s) => `V_ref ${v} mV (${s})`, srcUser: "genullt", srcBoot: "beim Einschalten", srcCal: "Kalibrierung",
+    zeroBad: v => `Nullen abgelehnt: ${v} mV liegt außerhalb 60–150 mV (Sensor belastet?)`,
+    coef: "Koeffizienten (R_FSR = RS + K·kg^−N)", calFit: "Aus Messpunkten fitten", calWrite: "Ins Gerät schreiben", calFactory: "Werkswerte",
+    srcDev: "aus dem Gerät", srcLocal: "zuletzt gelesen", srcFit: "neu gefittet, noch nicht gespeichert", srcFactory: "Werkswerte",
+    fitNeed: "Für den Fit mindestens 3 Messpunkte mit Gewicht > 0 (und am besten einen bei 0 kg) aufnehmen.",
+    fitRes: (e, n) => `Fit aus ${n} Punkten: mittlere Abweichung ${e} %. Mit „Ins Gerät schreiben“ übernehmen.`,
+    calSaved: "# Kalibrierung im Gerät gespeichert", calErr: m => "Kalibrierung schreiben fehlgeschlagen: " + m,
     fw: "Firmware-Update (Bluetooth)", fwInst: "installiert:", fwPick: "Update-Datei wählen …",
     fwLatest: v => `Neueste Version ${v} installieren`, fwNoSmp: "Diese Firmware hat keine Update-Funktion (einmal per USB die *_factory.hex flashen).",
     fwBad: "Keine gültige Update-Datei (MCUboot-Image *_update.bin erwartet).",
@@ -229,6 +255,14 @@ const TEXT = {
     calAsk: "Delete all calibration points?",
     calHint: "Place the weight, keep still, enter the weight and press “Add point”. Points are kept in the browser. The recording above also contains the entered reference weight in every row.",
     logCal: (k, m, s) => `# Point ${k} kg: ${m} mV (σ ${s} mV)`,
+    over: "overload", zeroFsr: "Zero", zeroFsrT: "Use the current rest value (1 s mean) as zero point V_ref – keep the sensor unloaded",
+    vrefSrc: (v, s) => `V_ref ${v} mV (${s})`, srcUser: "zeroed", srcBoot: "at power-on", srcCal: "calibration",
+    zeroBad: v => `Zero rejected: ${v} mV is outside 60–150 mV (sensor loaded?)`,
+    coef: "Coefficients (R_FSR = RS + K·kg^−N)", calFit: "Fit from points", calWrite: "Write to device", calFactory: "Factory values",
+    srcDev: "from device", srcLocal: "last read", srcFit: "new fit, not saved yet", srcFactory: "factory values",
+    fitNeed: "The fit needs at least 3 points with weight > 0 (ideally one at 0 kg as well).",
+    fitRes: (e, n) => `Fit from ${n} points: mean deviation ${e} %. Use “Write to device” to keep it.`,
+    calSaved: "# Calibration saved in the device", calErr: m => "Writing calibration failed: " + m,
     fw: "Firmware update (Bluetooth)", fwInst: "installed:", fwPick: "Choose update file …",
     fwLatest: v => `Install latest version ${v}`, fwNoSmp: "This firmware has no update function (flash the *_factory.hex once via USB).",
     fwBad: "Not a valid update file (MCUboot image *_update.bin expected).",
@@ -250,7 +284,7 @@ function applyLang() {
   $("record").textContent = T(recording ? "recOff" : "recOn");
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
-  fwShowLatest();
+  fwShowLatest(); showCal();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
 ["de", "en"].forEach(l => $("lang-" + l).onclick = () => { lang = l; localStorage.setItem("feoLang", l); applyLang(); });
@@ -268,6 +302,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) naviga
 const FEO_SVC = "7a1e0011-5c3b-4f0a-9d2e-3c8f1b6a4d01";
 const FEO_DATA = "7a1e0012-5c3b-4f0a-9d2e-3c8f1b6a4d01";
 const FEO_BAT = "7a1e0013-5c3b-4f0a-9d2e-3c8f1b6a4d01";
+const FEO_CAL = "7a1e0014-5c3b-4f0a-9d2e-3c8f1b6a4d01";
 const SAMPLE_MS = 10;
 const RANGES_MV = [900, 1800, 3600];   // Messbereich je nach SAADC-Gain 1, 1/2, 1/4
 let bleDev = null;
@@ -279,7 +314,7 @@ $("ble").onclick = async () => {
   try {
     bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
     bleDev.addEventListener("gattserverdisconnected", () => {
-      log(T("logBleOff")); bleDev = null; batChr = null; smpDisconnected();
+      log(T("logBleOff")); bleDev = null; batChr = null; calChr = null; $("calWrite").disabled = true; smpDisconnected();
       $("ble").textContent = T("bleOn"); setStatus("stIdle");
     });
     setStatus("stBle");
@@ -295,6 +330,7 @@ $("ble").onclick = async () => {
       await bat.startNotifications();
       batChr = bat;
     } catch (e) { log(T("logBleErr", e.message)); }
+    try { calChr = await svc.getCharacteristic(FEO_CAL); await calRead(); } catch (e) { calChr = null; }
     await smpConnect(server);
     $("ble").textContent = T("bleOff");
     $("record").disabled = false; $("pause").disabled = false; $("calAdd").disabled = false;
@@ -393,11 +429,12 @@ function handleLine(line) {
   const v = r.slice(0, 7);
   v.push(Math.hypot(v[1], v[2], v[3]), Math.hypot(v[4], v[5], v[6]), r[7], r[8], r[9]);
   if (r[9] > 0) batMv = r[9];
+  v.push(fsrKg(r[7]));                 // [12] kg aus der Kalibrierung
   ahrsUpdate(v);
   if (buf.length && v[0] < buf[buf.length - 1][0]) buf.length = 0;   // Board neu gestartet
   buf.push(v);
   if (buf.length > MAXPTS) buf.splice(0, buf.length - MAXPTS);
-  if (recording) recording.push(line + "," + refKgText());
+  if (recording) recording.push(line + "," + refKgText() + "," + (Number.isFinite(v[12]) ? v[12].toFixed(3) : ""));
   rateCount++;
 }
 
@@ -409,7 +446,7 @@ $("record").onclick = () => {
     $("record").textContent = T("recOff");
     $("record").classList.add("rec");
   } else {
-    const csv = CSV_HEAD + ",ref_kg\n" + recording.join("\n") + "\n";
+    const csv = CSV_HEAD + ",ref_kg,kg\n" + recording.join("\n") + "\n";
     const n = recording.length;
     recording = null;
     $("record").textContent = T("recOn");
@@ -597,6 +634,82 @@ $("fwLatest").onclick = async () => {
   } catch (e) { $("fwState").textContent = T("fwErr", e.message); }
 };
 
+// ---------- kg aus der Kalibrierung ----------
+// Modell: R_FSR = RS + K * kg^-N, U = VREF * (1 + RF / R_FSR). Koeffizienten liegen im Gerät
+// (Characteristic FEO_CAL, im Flash gespeichert); die App rechnet kg aus.
+const CAL_FACTORY = { vref: 94.9, rf: 12000, rs: 324.7, k: 4704.9, n: 1.102, stamp: 0 };
+let cal = { ...CAL_FACTORY }, calSrc = "srcFactory", calChr = null, vref0 = 0, vrefUser = 0;
+try { const c = JSON.parse(localStorage.getItem("feoCalCoef")); if (c && c.k > 0) { cal = c; calSrc = "srcLocal"; } } catch (e) {}
+const vrefEff = () => vrefUser || vref0 || cal.vref;
+function fsrKg(u) {
+  const vr = vrefEff();
+  if (!(u > vr + 2)) return 0;                      // ~2 mV Totband gegen Rauschen
+  const den = vr * cal.rf / (u - vr) - cal.rs;
+  return den > 0 ? Math.pow(cal.k / den, 1 / cal.n) : Infinity;   // Infinity = Überlast
+}
+function showCal() {
+  $("coefTxt").textContent = `RS ${cal.rs.toFixed(1)} Ω · K ${cal.k.toFixed(1)} · N ${cal.n.toFixed(4)} · Rf ${cal.rf.toFixed(0)} Ω · V_ref ${cal.vref.toFixed(1)} mV — ${T(calSrc)}` +
+    (cal.stamp ? ` (${new Date(cal.stamp * 1000).toLocaleDateString()})` : "");
+  $("rfIn").value = cal.rf;
+  const src = vrefUser ? "srcUser" : vref0 ? "srcBoot" : "srcCal";
+  $("vref").textContent = T("vrefSrc", vrefEff().toFixed(1), T(src));
+}
+async function calRead() {
+  const dv = await calChr.readValue(), f = i => dv.getFloat32(4 * i, true);
+  cal = { vref: f(0), rf: f(1), rs: f(2), k: f(3), n: f(4), stamp: dv.getUint32(20, true) };
+  vref0 = dv.byteLength >= 28 ? f(6) : 0;
+  calSrc = "srcDev"; localStorage.setItem("feoCalCoef", JSON.stringify(cal));
+  $("calWrite").disabled = false; showCal();
+}
+$("calWrite").onclick = async () => {
+  try {
+    const b = new DataView(new ArrayBuffer(24));
+    [cal.vref, cal.rf, cal.rs, cal.k, cal.n].forEach((x, i) => b.setFloat32(4 * i, x, true));
+    b.setUint32(20, cal.stamp || Math.floor(Date.now() / 1000), true);
+    await calChr.writeValueWithResponse(b.buffer);
+    await calRead(); log(T("calSaved"));
+  } catch (e) { log(T("calErr", e.message)); }
+};
+$("calFactory").onclick = () => { cal = { ...CAL_FACTORY }; calSrc = "srcFactory"; showCal(); };
+$("zeroFsr").onclick = () => {
+  const st = fsrWindowStats(1);
+  if (!st) return;
+  if (st.mean < 60 || st.mean > 150) { log(T("zeroBad", st.mean.toFixed(1))); return; }
+  vrefUser = st.mean; showCal();
+};
+
+// Fit RS, K, N aus den Kalibrierpunkten: für jedes RS lineare Regression ln(R-RS) = ln K - N ln kg,
+// RS so wählen, dass der Fehler der Umkehrfunktion (in ln kg) minimal wird
+function fitCal(pts, vref, rf) {
+  const P = pts.filter(p => p.kg > 0 && p.mean > vref + 2).map(p => ({ kg: p.kg, R: vref * rf / (p.mean - vref) }));
+  if (P.length < 3) return null;
+  const rmin = Math.min(...P.map(p => p.R));
+  const evalRs = rs => {
+    const xs = P.map(p => Math.log(p.kg)), ys = P.map(p => Math.log(p.R - rs));
+    const mx = xs.reduce((a, b) => a + b) / xs.length, my = ys.reduce((a, b) => a + b) / ys.length;
+    let sxy = 0, sxx = 0;
+    xs.forEach((x, i) => { sxy += (x - mx) * (ys[i] - my); sxx += (x - mx) ** 2; });
+    if (sxx === 0) return null;
+    const n = -sxy / sxx, k = Math.exp(my + n * mx);
+    if (!(n > 0.1 && n < 10)) return null;
+    const err = P.reduce((a, p) => a + (Math.log(Math.pow(k / (p.R - rs), 1 / n)) - Math.log(p.kg)) ** 2, 0) / P.length;
+    return { rs, k, n, err };
+  };
+  let best = null;
+  for (let i = 0; i < 400; i++) { const r = evalRs(rmin * 0.995 * i / 400); if (r && (!best || r.err < best.err)) best = r; }
+  return best && { ...best, n_pts: P.length, mape: P.reduce((a, p) => a + Math.abs(Math.pow(best.k / (p.R - best.rs), 1 / best.n) / p.kg - 1), 0) / P.length };
+}
+$("calFit").onclick = () => {
+  const rf = Number($("rfIn").value) || cal.rf;
+  const zeros = calPts.filter(p => p.kg === 0);
+  const vref = zeros.length ? zeros.reduce((a, p) => a + p.mean, 0) / zeros.length : vrefEff();
+  const r = fitCal(calPts, vref, rf);
+  if (!r) { $("fitTxt").textContent = T("fitNeed"); return; }
+  cal = { vref, rf, rs: r.rs, k: r.k, n: r.n, stamp: Math.floor(Date.now() / 1000) };
+  calSrc = "srcFit"; showCal();
+  $("fitTxt").textContent = T("fitRes", (r.mape * 100).toFixed(1), r.n_pts);
+};
+
 // ---------- Kalibrierung Kraft – Spannung ----------
 // Referenzgewicht als Text (Punkt als Dezimaltrenner), leer wenn nicht eingetragen
 const refKgText = () => { const k = parseFloat($("refkg").value); return Number.isFinite(k) ? String(k) : ""; };
@@ -605,9 +718,9 @@ try { calPts = JSON.parse(localStorage.getItem("feoCal") || "[]"); } catch (e) {
 const saveCal = () => localStorage.setItem("feoCal", JSON.stringify(calPts));
 
 // Statistik der FSR-Spannung über die letzten avg Sekunden
-function fsrWindowStats() {
+function fsrWindowStats(sec) {
   if (!buf.length) return null;
-  const tEnd = buf[buf.length - 1][0], tStart = tEnd - Number($("avgs").value) * 1000;
+  const tEnd = buf[buf.length - 1][0], tStart = tEnd - (sec || Number($("avgs").value)) * 1000;
   const xs = [], ranges = new Set();
   for (let i = buf.length - 1; i >= 0 && buf[i][0] > tStart; i--) {
     if (buf[i][10] > 0) { xs.push(buf[i][9]); ranges.add(buf[i][10]); }
@@ -977,6 +1090,7 @@ function frame() {
       $("vam").textContent = fmt(last[7], 2, 6);
       $("vgm").textContent = fmt(last[8], 0, 5);
       $("vfsr").textContent = fmt(last[9], 0, 4);
+      $("vkg").textContent = !Number.isFinite(last[12]) ? T("over") : fmt(last[12], 2, 6);
       $("vrange").textContent = last[10] ? (last[10] / 1000).toFixed(1) + " V" : "–";
     }
     const st = fsrWindowStats();

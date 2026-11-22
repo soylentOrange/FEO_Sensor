@@ -150,6 +150,7 @@ t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
 - Service `7a1e0011-5c3b-4f0a-9d2e-3c8f1b6a4d01`
 - Characteristic `7a1e0012-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify): samples
 - Characteristic `7a1e0013-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, notify once per second): battery voltage, uint16 in mV
+- Characteristic `7a1e0014-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): force calibration, stored in flash (Zephyr settings). Little endian: float32 `VREF` (mV), `RF` (Ω), `RS` (Ω), `K`, `N`, uint32 calibration time (Unix s, 0 = factory values). Reading returns 4 more bytes: float32 `VREF_0`, the rest voltage measured at power-on (0 = not measured or implausible). Only the first 24 bytes are written.
 
 The UUIDs differ from XIAO_IMU_Live, so the two apps do not pick up each other's boards.
 
@@ -183,6 +184,21 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 Yaw drifts slowly because the board has no magnetometer.
 
 ### Force Calibration
+
+**kg display.** The app converts U_FSR to kg with the model
+
+```text
+R_FSR = RS + K · kg^(−N)          U = V_ref · (1 + Rf / R_FSR)
+kg    = ( K / (V_ref · Rf / (U − V_ref) − RS) )^(1/N)     (0 below V_ref + 2 mV, overload if the denominator ≤ 0)
+```
+
+The coefficients live in the device, so each sensor keeps its own calibration. The app reads them on Bluetooth connect (and remembers the last ones for USB). Factory values come from the calibration of 22.11.2026 (Rf = 12k).
+
+**Zero point.** V_ref drifts a little, so the firmware measures it at **power-on**, when the sensor is certainly unloaded: it waits 2 s for the amplifier and filter to settle, averages 1 s and accepts 60–150 mV. The **Zero** button in the app takes the current 1 s mean instead (keep the sensor unloaded; after a load the FSR creeps back for about 10 s). The source in use is shown next to the kg value.
+
+**Fitting new coefficients.** Collect calibration points as below (ideally one at 0 kg and several up to the maximum load), set Rf, press **Fit from points**, check the mean deviation, then **Write to device**. **Factory values** restores the defaults in the app (write them to store them).
+
+#### Calibration points
 
 1. Connect, put a known weight on the sensor, keep it still.
 2. Enter the weight in kg under **Reference weight** and press **Add point**. The app stores the mean, standard deviation, min, max and number of FSR samples over the averaging window (0.5–3 s), the range(s) used and the battery voltage.

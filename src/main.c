@@ -35,6 +35,13 @@
  *   }
  * Characteristic FEO_BAT_UUID (read, notify 1x pro Sekunde):
  *   uint16 U_Akku in mV (0 = noch nicht gemessen)
+ * Characteristic FEO_CAL_UUID (read, write): Kalibrierung des Kraftsensors,
+ * im Flash gespeichert (Settings), die App rechnet daraus kg:
+ *   float32 VREF (mV), RF (Ohm), RS (Ohm), K (Ohm*kg^N), N; uint32 Zeitpunkt (Unix-s, 0 = Werkswert)
+ *   Lesen liefert zusätzlich float32 VREF_0: beim Einschalten gemessene Ruhespannung
+ *   (2 s nach dem Start 1 s gemittelt, 0 = noch nicht gemessen oder unplausibel).
+ *   Geschrieben werden nur die ersten 24 Byte.
+ *   Modell: R_FSR = RS + K * kg^-N, U = VREF * (1 + RF / R_FSR)
  *
  * Firmware-Update (nur Build mit MCUboot, zephyr/ota.conf): MCUmgr/SMP-Service
  * über BLE. Ein neues Image läuft nach dem Neustart zunächst zur Probe; die
@@ -48,6 +55,8 @@
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/regulator.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/settings/settings.h>
+#include <string.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
@@ -91,6 +100,79 @@ static const struct device *const vbat_sw = DEVICE_DT_GET(DT_NODELABEL(vbat_pwr)
 static const struct bt_uuid_128 feo_svc_uuid = BT_UUID_INIT_128(FEO_SVC_UUID_VAL);
 static const struct bt_uuid_128 feo_data_uuid = BT_UUID_INIT_128(FEO_DATA_UUID_VAL);
 static const struct bt_uuid_128 feo_bat_uuid = BT_UUID_INIT_128(FEO_BAT_UUID_VAL);
+#define FEO_CAL_UUID_VAL \
+	BT_UUID_128_ENCODE(0x7a1e0014, 0x5c3b, 0x4f0a, 0x9d2e, 0x3c8f1b6a4d01)
+static const struct bt_uuid_128 feo_cal_uuid = BT_UUID_INIT_128(FEO_CAL_UUID_VAL);
+
+/* ---------------- Kalibrierung (im Flash) ---------------- */
+
+struct fsr_cal {
+	float vref_mv, rf_ohm, rs_ohm, k, n;
+	uint32_t stamp;         /* Unix-Zeit der Kalibrierung, 0 = Werkswert */
+};
+#define CAL_LEN 24
+/* Werkswerte: Kalibrierung vom 22.11.2026 (Rf = 12k, runder 30-mm-FSR) */
+static struct fsr_cal cal = { 94.9f, 12000.0f, 324.7f, 4704.9f, 1.102f, 0 };
+static float vref_zero;  /* beim Einschalten gemessene Ruhespannung (mV), 0 = keine */
+#define ZERO_START   (2 * SAMPLE_RATE_HZ)   /* Filter/OPV einschwingen lassen */
+#define ZERO_LEN     SAMPLE_RATE_HZ         /* 1 s mitteln */
+#define ZERO_MIN_MV  60                     /* Plausibilitätsfenster für V_ref */
+#define ZERO_MAX_MV  150
+
+static void cal_pack(const struct fsr_cal *c, uint8_t *b)
+{
+	const float f[5] = { c->vref_mv, c->rf_ohm, c->rs_ohm, c->k, c->n };
+
+	for (int i = 0; i < 5; i++) {
+		uint32_t u;
+
+		memcpy(&u, &f[i], 4);
+		sys_put_le32(u, b + 4 * i);
+	}
+	sys_put_le32(c->stamp, b + 20);
+}
+
+static bool cal_unpack(const uint8_t *b, struct fsr_cal *c)
+{
+	float f[5];
+
+	for (int i = 0; i < 5; i++) {
+		uint32_t u = sys_get_le32(b + 4 * i);
+
+		memcpy(&f[i], &u, 4);
+		if (!(f[i] == f[i])) {      /* NaN */
+			return false;
+		}
+	}
+	/* Plausibilität: positive Werte, Exponent in sinnvollem Bereich */
+	if (f[0] <= 0 || f[1] <= 0 || f[2] < 0 || f[3] <= 0 || f[4] < 0.1f || f[4] > 10.0f) {
+		return false;
+	}
+	*c = (struct fsr_cal){ f[0], f[1], f[2], f[3], f[4], sys_get_le32(b + 20) };
+	return true;
+}
+
+static int cal_settings_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
+{
+	uint8_t b[CAL_LEN];
+
+	if (strcmp(name, "cal") || len != CAL_LEN || read_cb(cb_arg, b, CAL_LEN) != CAL_LEN) {
+		return 0;
+	}
+	if (!cal_unpack(b, &cal)) {
+		printk("# Kalibrierung im Flash ungültig, nehme Werkswerte\n");
+	}
+	return 0;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(feo, "feo", NULL, cal_settings_set, NULL, NULL);
+
+static void cal_print(const char *what)
+{
+	printk("# Kalibrierung %s: VREF=%.1f mV RF=%.0f RS=%.1f K=%.1f N=%.4f (%s)\n", what,
+	       (double)cal.vref_mv, (double)cal.rf_ohm, (double)cal.rs_ohm, (double)cal.k,
+	       (double)cal.n, cal.stamp ? "gespeichert" : "Werkswert");
+}
 
 static struct bt_conn *cur_conn;
 static atomic_t notify_on;
@@ -118,8 +200,38 @@ static ssize_t bat_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, v, sizeof(v));
 }
 
+static ssize_t cal_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			void *buf, uint16_t len, uint16_t offset)
+{
+	uint8_t b[CAL_LEN + 4];
+	uint32_t u;
+
+	cal_pack(&cal, b);
+	memcpy(&u, &vref_zero, 4);
+	sys_put_le32(u, b + CAL_LEN);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, b, sizeof(b));
+}
+
+static ssize_t cal_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			 const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+	struct fsr_cal c;
+
+	if (offset != 0 || len != CAL_LEN) {
+		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+	}
+	if (!cal_unpack(buf, &c)) {
+		return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+	}
+	cal = c;
+	int err = settings_save_one("feo/cal", buf, CAL_LEN);
+
+	cal_print(err ? "übernommen, Speichern FEHLGESCHLAGEN" : "gespeichert");
+	return err ? BT_GATT_ERR(BT_ATT_ERR_UNLIKELY) : len;
+}
+
 /* Attribute: [0] Service, [1] Daten-Decl, [2] Daten-Wert, [3] CCC,
- *            [4] Akku-Decl, [5] Akku-Wert, [6] CCC */
+ *            [4] Akku-Decl, [5] Akku-Wert, [6] CCC, [7] Kal-Decl, [8] Kal-Wert */
 BT_GATT_SERVICE_DEFINE(feo_svc,
 	BT_GATT_PRIMARY_SERVICE(&feo_svc_uuid),
 	BT_GATT_CHARACTERISTIC(&feo_data_uuid.uuid, BT_GATT_CHRC_NOTIFY,
@@ -128,6 +240,8 @@ BT_GATT_SERVICE_DEFINE(feo_svc,
 	BT_GATT_CHARACTERISTIC(&feo_bat_uuid.uuid, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 			       BT_GATT_PERM_READ, bat_read, NULL, NULL),
 	BT_GATT_CCC(bat_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(&feo_cal_uuid.uuid, BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE, cal_read, cal_write, NULL),
 );
 
 static const struct bt_data ad[] = {
@@ -431,6 +545,12 @@ int main(void)
 	}
 	sensors_analog_init();
 
+	if (settings_subsys_init() == 0) {
+		settings_load();
+	} else {
+		printk("# Fehler: Settings (Kalibrierung) nicht verfügbar\n");
+	}
+
 	int err = bt_enable(NULL);
 
 	if (err) {
@@ -450,6 +570,7 @@ int main(void)
 #endif
 	printk("# XIAO nRF54L15 FEO-Sensor, %d Hz, +-%d g, +-%d dps, FSR + Akku\n",
 	       SAMPLE_RATE_HZ, ACCEL_RANGE_G, GYRO_RANGE_DPS);
+	cal_print("aktiv");
 	printk("# t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv\n");
 
 	int64_t next = k_uptime_get();
@@ -470,6 +591,23 @@ int main(void)
 
 		int32_t fsr_mv;
 		uint16_t fsr_word = fsr_measure(&fsr_mv);
+
+		/* Nullpunkt beim Einschalten: dann liegt sicher keine Last an */
+		static int32_t zero_sum;
+
+		if (n >= ZERO_START && n < ZERO_START + ZERO_LEN) {
+			zero_sum += fsr_mv;
+		} else if (n == ZERO_START + ZERO_LEN && adc_ok) {
+			float z = (float)zero_sum / ZERO_LEN;
+
+			if (z >= ZERO_MIN_MV && z <= ZERO_MAX_MV) {
+				vref_zero = z;
+				printk("# Nullpunkt beim Start: VREF_0 = %.1f mV\n", (double)z);
+			} else {
+				printk("# Warnung: Nullpunkt %.1f mV unplausibel (Last beim Start?), "
+				       "nehme VREF aus der Kalibrierung\n", (double)z);
+			}
+		}
 
 		if (sensor_sample_fetch(imu) == 0 &&
 		    sensor_channel_get(imu, SENSOR_CHAN_ACCEL_XYZ, acc) == 0 &&
