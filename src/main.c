@@ -1307,6 +1307,7 @@ int main(void)
 				dl_stride((uint8_t)st.flags, st.stride_ms, st.t_ic_ms, st.stance_ms,
 					  st.f_peak_kg, st.f_mean_kg, st.f_imp_kgs);
 				atomic_inc(&stride_total);
+				ble_push_status();         /* lets the app flash its activity badge */
 				if (cur_conn && atomic_get(&step_notify_on) && atomic_get(&step_resend) < 0 &&
 				    (atomic_get(&outputs) & OUT_BLE_STEP)) {
 					step_notify(st.seq);
