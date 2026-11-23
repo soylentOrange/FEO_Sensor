@@ -76,7 +76,8 @@
  * Bluetooth wirbt nach 30 s nur noch langsam (ca. 1 s). Die Rohdaten (FEO_DATA_UUID)
  * schickt die Firmware nur, wenn die App sie abonniert.
  * LED: aus im Ruhemodus; bei erkannter Aktivität kurzes schwaches Blitzen mit 2 Hz,
- * bei jedem Fersenauftritt (IC) ein längerer, hellerer Blitz.
+ * bei jedem Fersenauftritt (IC) ein längerer, hellerer Blitz. Flash length (= apparent
+ * brightness) in 5 levels, set from the app (control command 9, stored in flash).
  *
  * Firmware-Update (nur Build mit MCUboot, zephyr/ota.conf): MCUmgr/SMP-Service
  * über BLE. Ein neues Image läuft nach dem Neustart zunächst zur Probe; die
@@ -178,6 +179,7 @@ static const struct bt_uuid_128 feo_log_uuid = BT_UUID_INIT_128(FEO_LOG_UUID_VAL
 #define OUT_SER_STEP     BIT(3)   /* serial #S lines */
 #define OUT_ALL          0x000f
 #define CTRL_OUTPUTS     7        /* control command: uint16 output mask */
+#define CTRL_LED         9        /* control command: uint8 LED level 0..4 */
 #define CTRL_PASSKEY     8        /* control command: uint32 passkey 0..999999, 0xFFFFFFFF = none */
 #define PK_NONE          0xFFFFFFFFu
 #define PK_RESET_MS      5000     /* hold the user button this long at power-up: clear passkey + bonds */
@@ -185,6 +187,14 @@ static const struct bt_uuid_128 feo_log_uuid = BT_UUID_INIT_128(FEO_LOG_UUID_VAL
 #define CTRL_STATUS_LEN  (DL_STATUS_LEN + 8)
 static atomic_t outputs = ATOMIC_INIT(OUT_ALL);
 static atomic_t passkey = ATOMIC_INIT((atomic_val_t)PK_NONE);
+/* LED level (stored in flash): the LED is either fully on or off, so it looks
+ * brighter with longer flashes. Per level: flash while moving (2 Hz) and at
+ * initial contact, in ms. Level 3 while walking: about 1 mA on average. */
+#define LED_LEVELS       5
+#define LED_DEFAULT      3
+static const uint16_t led_move_ms[LED_LEVELS] = { 0, 10, 20, 30, 50 };
+static const uint16_t led_ic_ms[LED_LEVELS] = { 0, 60, 120, 200, 300 };
+static atomic_t led_level = ATOMIC_INIT(LED_DEFAULT);
 static atomic_t stride_total;     /* strides since power-up */
 static atomic_t activity;         /* 0 rest mode, 1 still, 2 moving */
 static atomic_t still_secs;
@@ -284,6 +294,14 @@ static int cal_settings_set(const char *name, size_t len, settings_read_cb read_
 
 	if (!strcmp(name, "frame")) {
 		return frame_settings_set(len, read_cb, cb_arg);
+	}
+	if (!strcmp(name, "led")) {
+		uint8_t l;
+
+		if (len == 1 && read_cb(cb_arg, &l, 1) == 1 && l < LED_LEVELS) {
+			atomic_set(&led_level, l);
+		}
+		return 0;
 	}
 	if (!strcmp(name, "pk")) {
 		uint8_t k[4];
@@ -544,7 +562,8 @@ static void ctrl_status(uint8_t b[CTRL_STATUS_LEN])
 	sys_put_le32((uint32_t)atomic_get(&stride_total), b + DL_STATUS_LEN);
 	b[DL_STATUS_LEN + 4] = (uint8_t)atomic_get(&activity);
 	b[DL_STATUS_LEN + 5] = (pk_set() ? 1 : 0) |
-		(cur_conn && bt_conn_get_security(cur_conn) >= BT_SECURITY_L3 ? 2 : 0);
+		(cur_conn && bt_conn_get_security(cur_conn) >= BT_SECURITY_L3 ? 2 : 0) |
+		(uint8_t)(atomic_get(&led_level) << 4);
 	sys_put_le16((uint16_t)MIN(atomic_get(&still_secs), UINT16_MAX), b + DL_STATUS_LEN + 6);
 }
 
@@ -574,6 +593,12 @@ static ssize_t ctrl_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		sys_put_le16(sys_get_le16(b + 1) & OUT_ALL, m);
 		atomic_set(&outputs, sys_get_le16(m));
 		settings_save_one("feo/outputs", m, 2);
+	} else if (b[0] == CTRL_LED) {
+		if (len != 2 || b[1] >= LED_LEVELS) {
+			return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+		}
+		atomic_set(&led_level, b[1]);
+		settings_save_one("feo/led", &b[1], 1);
 	} else if (b[0] == CTRL_PASSKEY) {
 		if (len != 5) {
 			return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
@@ -1465,8 +1490,10 @@ int main(void)
 				    (atomic_get(&outputs) & OUT_BLE_STEP)) {
 					step_notify(st.seq);
 				}
-				led_set(true);              /* Fersenauftritt: langer, heller Blitz */
-				led_off = k_uptime_get() + 60;
+				if (led_ic_ms[atomic_get(&led_level)]) {   /* initial contact: long flash */
+					led_set(true);
+					led_off = k_uptime_get() + led_ic_ms[atomic_get(&led_level)];
+				}
 			}
 		} else {
 			printk("# Lesefehler\n");
@@ -1502,9 +1529,10 @@ int main(void)
 		if (led_off && now >= led_off) {
 			led_set(false);
 			led_off = 0;
-		} else if (!led_off && moving && n % (SAMPLE_RATE_HZ / 2) == 0) {
+		} else if (!led_off && moving && n % (SAMPLE_RATE_HZ / 2) == 0 &&
+			   led_move_ms[atomic_get(&led_level)]) {
 			led_set(true);
-			led_off = now + 2;
+			led_off = now + led_move_ms[atomic_get(&led_level)];
 		}
 
 		if (rest_ok && still_s >= REST_AFTER_S && !raw_requested()) {

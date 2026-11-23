@@ -386,6 +386,13 @@
     </div>
     <progress id="fwProg" max="1" value="0" hidden></progress>
   </div>
+  <div class="card fw t-fw">
+    <h2><span data-i18n="ledTitle"></span></h2>
+    <div class="row">
+      <select id="ledLvl" disabled></select>
+    </div>
+    <div class="hint" data-i18n="ledHint"></div>
+  </div>
   <div class="card fw pk t-fw">
     <h2><span data-i18n="pkTitle"></span> <span class="hint" id="pkState">–</span></h2>
     <div class="row">
@@ -517,6 +524,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
     dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
     dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
+    ledTitle: "LED am Sensor", ledNames: ["aus", "1 (kurz, wie bisher)", "2", "3 (Standard)", "4 (am hellsten)"],
+    ledHint: "Die LED ist entweder ganz an oder aus; heller wirkt sie durch längere Blitze (bei Bewegung 2 Hz, bei jedem Fersenauftritt ein langer Blitz). Stufe 3 kostet beim Gehen etwa 1 mA, „aus“ spart das ganz. Wird im Sensor gespeichert.",
     pkTitle: "Kopplungscode", pkSetB: "Code setzen", pkClearB: "Code entfernen",
     pkOff: "aus: jeder kann sich verbinden", pkOn: "aktiv", pkOnPaired: "aktiv, diese Verbindung ist gekoppelt",
     pkHint: "Mit Code verbindet sich nur, wer ihn kennt: beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt. Gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.",
@@ -641,6 +650,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
     dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
     dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
+    ledTitle: "Sensor LED", ledNames: ["off", "1 (short, as before)", "2", "3 (default)", "4 (brightest)"],
+    ledHint: "The LED is either fully on or off; longer flashes make it look brighter (2 Hz while moving, a long flash at every initial contact). Level 3 costs about 1 mA while walking; “off” saves that. Stored in the sensor.",
     pkTitle: "Pairing code", pkSetB: "Set code", pkClearB: "Remove code",
     pkOff: "off: anyone can connect", pkOn: "active", pkOnPaired: "active, this link is paired",
     pkHint: "With a code, only those who know it can connect: on the first connect the system asks once for the code (Android dialog, a notification on the Mac); after that the device stays paired. This also covers the firmware update. Code forgotten: hold the button on the XIAO for 5 s while switching on (LED blinks); this clears code and pairings. Then remove the board in the Bluetooth settings of the phone/computer.",
@@ -2204,9 +2215,17 @@ async function pkWaitAccess(svc) {
 }
 function renderPk() {
   const st = devSt, conn = !!(ctrlChr && st);
+  const ll = $("ledLvl"), names = T("ledNames");
+  if (ll.options.length !== names.length || ll.options[0].text !== names[0])
+    ll.innerHTML = names.map((n, i) => `<option value="${i}">${n}</option>`).join("");
+  ll.disabled = !conn;
+  if (conn && document.activeElement !== ll) ll.value = String((st.sec >> 4) & 7);
   $("pkState").textContent = !conn ? "–" : st.sec & 1 ? T(st.sec & 2 ? "pkOnPaired" : "pkOn") : T("pkOff");
   $("pkSet").disabled = !conn; $("pkClear").disabled = !conn || !(st.sec & 1);
 }
+$("ledLvl").onchange = async () => {
+  try { await ctrlCmd([9, Number($("ledLvl").value)]); } catch (e) { log(T("logBleErr", e.message)); }
+};
 $("pkSet").onclick = async () => {
   const c = $("pkCode").value.trim();
   if (!/^\d{6}$/.test(c)) { $("pkState").textContent = T("pkBad"); return; }
