@@ -568,6 +568,7 @@ const TEXT = {
     pkClearAsk: "Kopplungscode entfernen? Danach kann sich jeder in der Nähe verbinden.",
     pkDone: "# Kopplungscode gespeichert", pkCleared: "# Kopplungscode entfernt",
     pkWait: "Kopplung: Code im Systemdialog eingeben …", pkFail: "Nicht gekoppelt (Code falsch oder Dialog abgebrochen). Ggf. das Board in den Bluetooth-Einstellungen entfernen und neu verbinden.",
+    fwRestart: "Board wird vor dem Update neu gestartet …", fwNoReconnect: "Board nach dem Neustart nicht wieder verbunden, bitte neu verbinden und das Update erneut starten",
     fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „Firmware-Update“ die neueste Version installieren (ab v0.4.0).",
     outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     outsHint: "Akku und Aktivität laufen immer.",
@@ -709,6 +710,7 @@ const TEXT = {
     pkClearAsk: "Remove the pairing code? Anyone nearby can then connect.",
     pkDone: "# Pairing code stored", pkCleared: "# Pairing code removed",
     pkWait: "Pairing: enter the code in the system dialog …", pkFail: "Not paired (wrong code or dialog cancelled). If needed, remove the board in the Bluetooth settings and connect again.",
+    fwRestart: "Restarting the board before the update …", fwNoReconnect: "board not reconnected after the restart; connect again and restart the update",
     fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “Firmware update” (v0.4.0 or later).",
     outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     outsHint: "Battery and activity are always on.",
@@ -760,15 +762,25 @@ let bleDev = null;
 let batMv = 0;                         // letzte Akkuspannung (mV), 0 = unbekannt
 let batChr = null, batT = 0, dataChr = null;           // Akku-Characteristic, Zeitpunkt des letzten Werts
 
+let bleLast = null;                    // last chosen device, for reconnecting without the chooser
+function bleGone() {
+  log(T("logBleOff")); bleDev = null; batChr = null; calChr = null; $("calWrite").disabled = true; smpDisconnected();
+  dataChr = frameChr = stepChr = null; streamOn = false; alButtons(); $("gLoad").disabled = true; ctrlDisconnected();
+  $("ble").textContent = T("bleOn"); setStatus("stIdle");
+}
 $("ble").onclick = async () => {
   if (bleDev) { bleDev.gatt.disconnect(); return; }
+  let d;
   try {
-    bleDev = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
-    bleDev.addEventListener("gattserverdisconnected", () => {
-      log(T("logBleOff")); bleDev = null; batChr = null; calChr = null; $("calWrite").disabled = true; smpDisconnected();
-      dataChr = frameChr = stepChr = null; streamOn = false; alButtons(); $("gLoad").disabled = true; ctrlDisconnected();
-      $("ble").textContent = T("bleOn"); setStatus("stIdle");
-    });
+    d = await navigator.bluetooth.requestDevice({ filters: [{ services: [FEO_SVC] }], optionalServices: [SMP_SVC] });
+  } catch (e) { log(T("logBleErr", e.message)); return; }
+  if (d !== bleLast) d.addEventListener("gattserverdisconnected", bleGone);
+  bleLast = d;
+  await bleOpen(d);
+};
+async function bleOpen(d) {
+  bleDev = d;
+  try {
     setStatus("stBle");
     const server = await bleDev.gatt.connect();
     const svc = await server.getPrimaryService(FEO_SVC);
@@ -1064,6 +1076,16 @@ async function fwInstall(buf) {
   if (cur === img.version && !confirm(T("fwSame") + "\n\n" + T("fwAsk", img.version, cur))) return;
   if (cur !== img.version && !confirm(T("fwAsk", img.version, cur))) return;
   if (devSt && devSt.flags & DL_ST.VALID && devSt.count - logN > 1 && !confirm(T("fwLogWarn", devSt.count - logN))) return;
+  // Uploads were reliable only right after a restart: restart the board first,
+  // reconnect (no chooser needed) and then upload
+  if (devSt && devSt.uptime > 30000 && bleLast && smpChr) {
+    $("fwState").textContent = T("fwRestart"); log("# " + T("fwRestart"));
+    try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* the board disconnects while restarting */ }
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    for (let i = 0; i < 50 && bleDev; i++) await sleep(100);
+    for (let i = 0; i < 5 && !(bleDev && smpChr); i++) { await sleep(1500); if (!bleDev) await bleOpen(bleLast); }
+    if (!(bleDev && smpChr)) { $("fwState").textContent = T("fwErr", T("fwNoReconnect")); return; }
+  }
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
   try {
