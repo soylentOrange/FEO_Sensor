@@ -130,6 +130,14 @@ A stride runs from IC to the next IC. For every stride the firmware reports the 
 | PSw Pre-swing | T (toe-off) | 50–60 % |
 | ISw / MSw / TSw | thirds of the swing phase | 60–73 / 73–87 / 87–100 % |
 
+Since firmware v0.8.0 every stride also carries:
+
+- **Heel contact:** share of stance (%) with heel load above the threshold of the long-term measurement (last one started, default 2 kg).
+- **Loading rate:** largest rise of the heel force over 30 ms between IC and the force peak (kg/s).
+- **Shank excursion:** sagittal range of the shank angle over the stride (°, integrated angular rate). Together with ω at MS (swing peak) a speed-related measure of the swing.
+
+From the mean acceleration over the strides the firmware also learns the shank direction while walking (or takes z of the alignment). At rest it gives the **shank tilt**: above 60° counts as lying or leg up, below as upright (sitting or standing, which a shank sensor cannot tell apart; heel load tells standing with load).
+
 The rotation axis comes from the [sensor alignment](#sensor-alignment). Without one, the firmware uses the principal axis of the angular rate while walking (sign from the third moment: swing peaks are the largest).
 
 ### Power Saving
@@ -139,17 +147,17 @@ The rotation axis comes from the [sensor alignment](#sensor-alignment). Without 
 - **Advertising** runs at 100–150 ms for 30 s after power-on or disconnect, then at about 2 s. Without a connection nothing else is sent.
 - **LED:** off at rest; dimly on while movement is detected; a bright flash at every initial contact. Dim and bright level (% duty of a software PWM, the LED pin has no hardware PWM) and the flash length are set in the app (Firmware tab, stored in flash); defaults 3 %, 100 %, 300 ms; 0 % switches either off.
 - The **serial console is off** (`uart20` disabled, no `printk`): the sensor talks only via Bluetooth. Flashing over USB goes through the SWD debugger on the XIAO and still works. For debugging output, remove the console block at the end of `zephyr/prj.conf` and the `uart20` node in `zephyr/app.overlay`; the serial formats below then apply again.
-- While a long-term measurement runs, the rest mode switches the amplifier on for 50 ms every 5 s to sample the heel load (standing with load).
+- While a long-term measurement runs, the rest mode switches the amplifier on for 50 ms every 5 s to sample the heel load (standing with load) and reads the accelerometer for the shank tilt.
 
 ### Long-term Measurement
 
 The firmware logs a measurement in flash, without the app, for everyday use (e.g. 24 h unsupervised):
 
-- **Every stride** (16 bytes): time of initial contact, stride and stance time, heel peak, stance mean and impulse, flags.
-- **Every minute** (16 bytes): strides, strides above the threshold, seconds with movement, seconds with heel load above the threshold while not moving, maximum heel load while not moving, battery.
+- **Every stride** (2 × 16 bytes since v0.8.0): time of initial contact, stride and stance time, heel peak, stance mean and impulse, flags; heel contact, time to peak, swing peak, shank excursion, loading rate, swing heel load.
+- **Every minute** (16 bytes): strides, strides above the threshold, seconds with movement, seconds with heel load above the threshold while not moving, seconds upright without heel load and seconds lying / leg up while not moving (since v0.8.0), maximum heel load while not moving, battery.
 - **Events:** start, stop, power-up (with reset cause), time set, rest/wake, power-on zero point, markers from the app, battery low, log full.
 
-Storage is the secondary image slot (`slot1_partition`, 712 KB, of which 704 KB are used = 45,056 entries). A typical day of 10,000 steps (5,000 strides) plus 1,440 minute entries takes about 105 KB, so the memory lasts **about 6–7 days**. Battery use for a 24 h day is estimated at 7–8 mAh (about 2 h active at ~3 mA, the rest in rest mode).
+Storage is the secondary image slot (`slot1_partition`, 712 KB, of which 704 KB are used = 45,056 entries). A typical day of 10,000 steps (5,000 strides) plus 1,440 minute entries takes about 185 KB, so the memory lasts **about 4 days** (6–7 days with firmware before v0.8.0, which logged one entry per stride). Logs written by older firmware (format version 1) can still be read out; a new measurement erases them first. Battery use for a 24 h day is estimated at 7–8 mAh (about 2 h active at ~3 mA, the rest in rest mode).
 
 - The app sets the **clock** every time it connects and again at start. The nRF counts on from there. All entries carry the uptime in ms; after a reset during a measurement the log keeps running without clock time, and the app maps the uptime to the clock again from the next time it connects.
 - A measurement **survives resets** and continues after power-up.
@@ -214,7 +222,7 @@ t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,u_fsr_mv,fsr_range_mv,u_bat_mv
 - Characteristic `7a1e0014-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): force calibration, stored in flash (Zephyr settings). Little endian: float32 `VREF` (mV), `RF` (Ω), `RS` (Ω), `K`, `N`, uint32 calibration time (Unix s, 0 = factory values). Reading returns 4 more bytes: float32 `VREF_0`, the rest voltage measured at power-on (0 = not measured or implausible). Only the first 24 bytes are written.
 
 - Characteristic `7a1e0015-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write): sensor alignment, stored in flash. float32 R[3][3] (rows: x forward, y right = sagittal axis, z down, each in sensor coordinates), uint32 time (Unix s; 0 = none, the firmware then estimates the axis itself). Reading returns 28 more bytes: float32 axis[3] currently used, float32 gyro offset[3] (°/s), uint32 number of strides since power-on.
-- Characteristic `7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify, write): one 102-byte record per stride (see below). The last 1024 records stay in RAM; writing a uint32 `seq` sends all records from that number again.
+- Characteristic `7a1e0016-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify, write): one 108-byte record per stride (see below). The last 1024 records stay in RAM; writing a uint32 `seq` sends all records from that number again.
 - Characteristic `7a1e0017-5c3b-4f0a-9d2e-3c8f1b6a4d01` (read, write, notify on change: activity, every stride, log state; otherwise every 10 s while active and every minute in rest mode): control and status. Status (48 bytes): uint8 version, uint8 flags (1 running, 2 log valid, 4 erasing, 8 clock set, 16 locked, 32 full), uint16 output mask, uint32 entries, uint32 capacity, uint32 device time (Unix s), uint16 threshold (0.01 kg), uint8 side, uint8 erase progress (%), char[8] pseudonym, uint32 index of the session header, uint32 uptime (ms), uint32 strides since power-up, uint8 activity (0 rest mode, 1 still, 2 moving), uint8 flags (bit 0 pairing code set, bit 1 this link is paired), uint16 seconds still, uint8 LED dim %, uint8 LED bright %, uint16 LED flash ms. Commands (byte 0): 1 set time (uint32 Unix s), 2 start (uint16 threshold, uint8 side, uint8 options bit 0 = erase first, char[8] pseudonym), 3 stop, 4 erase, 5 read out (uint32 from index, 0xFFFFFFFF = abort), 6 marker (uint16 number), 7 outputs (uint16 mask: 1 raw BLE, 2 strides BLE, 4 serial CSV, 8 serial strides), 8 pairing code (uint32 0..999999, 0xFFFFFFFF = none; drops all bonds), 9 LED (uint8 dim % while moving, uint8 bright % at initial contact, uint16 flash ms; 0 % = off).
 - Characteristic `7a1e0018-5c3b-4f0a-9d2e-3c8f1b6a4d01` (notify): log readout, uint32 index + up to 15 entries of 16 bytes; a packet without entries marks the end.
 
@@ -228,7 +236,7 @@ Each sample notification (little endian):
 | `n` | uint8 | Number of samples, 10 ms apart |
 | samples | n × 14 bytes | 6 × int16: ax, ay, az in mg; gx, gy, gz in 0.1 °/s<br>uint16: bits 0–13 U_FSR in mV, bits 14–15 range (0 = 0.9 V, 1 = 1.8 V, 2 = 3.6 V) |
 
-Each stride record (little endian, 102 bytes): uint32 `seq`, uint32 `t_ic_ms`, uint16 `stride_ms`, uint16 `stance_ms`, int16 ω at MS, IC, TO (0.1 °/s), uint16 force peak, stance mean (0.01 kg), uint16 stance impulse (0.01 kg·s), uint16 time IC → peak (ms), int16 swing mean (0.01 kg), uint16 flags (1 = overload, 2 = calibrated axis, 4 = automatic axis not settled yet, 8 = simple TO), 20 × uint16 force per 5 % of the cycle, 8 × uint16 mean and 8 × uint16 maximum per Rancho Los Amigos phase (IC, LR, MSt, TSt, PSw, ISw, MSw, TSw; 0.01 kg). Over USB serial each stride appears as a comment line `#S,seq,t_ic_ms,stride_ms,stance_ms,ms_dps,ic_dps,to_dps,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags,` followed by the 20 bins, 8 phase means and 8 phase maxima in kg.
+Each stride record (little endian, 108 bytes; 102 before v0.8.0): uint32 `seq`, uint32 `t_ic_ms`, uint16 `stride_ms`, uint16 `stance_ms`, int16 ω at MS, IC, TO (0.1 °/s), uint16 force peak, stance mean (0.01 kg), uint16 stance impulse (0.01 kg·s), uint16 time IC → peak (ms), int16 swing mean (0.01 kg), uint16 flags (1 = overload, 2 = calibrated axis, 4 = automatic axis not settled yet, 8 = simple TO), 20 × uint16 force per 5 % of the cycle, 8 × uint16 mean and 8 × uint16 maximum per Rancho Los Amigos phase (IC, LR, MSt, TSt, PSw, ISw, MSw, TSw; 0.01 kg), uint16 shank excursion (0.1 °), uint16 loading rate (0.1 kg/s), uint8 heel contact (% of stance), uint8 0. Over USB serial each stride appears as a comment line `#S,seq,t_ic_ms,stride_ms,stance_ms,ms_dps,ic_dps,to_dps,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags,` followed by the 20 bins, 8 phase means and 8 phase maxima in kg, then `rom_deg,f_rate_kgps,heel_pct`.
 
 **CSV recordings** from the web app use the serial columns plus `ref_kg`, the reference weight entered in the calibration panel at that moment (empty if none).
 
@@ -245,7 +253,7 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 - **Outputs:** switch raw data and stride records on and off
 - **Test conditions** (Steps tab): pick or type a condition before each test (presets follow the lab protocol: platform walking, standing, sit to stand, level ground, treadmill, stairs up/down). Each stride gets the condition that was set at its time, also strides loaded later from the device. The evaluation can be shown per condition, a table compares all conditions, and **Download CSV** saves one file per condition plus a summary (`feo_bedingungen_*.csv`). Raw recording and video carry the condition in the file name; in a running long-term measurement each change sets a marker.
 - **Video in sync** (Steps tab): records a video with the phone or laptop camera together with the data recording. Device time is mapped to browser time from the incoming samples (minimum delay over a 20 s window), so the data CSV gets a `video_ms` column and a separate CSV lists the strides with their time in the video (`video_s`). The sensor LED flashes at every initial contact, which can be used to check the sync in the video. Needs Chrome on Android or desktop (Web Bluetooth + MediaRecorder); not available on the iPhone
-- **Steps:** cadence, stride and stance time, heel force; bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
+- **Steps:** cadence, stride and stance time, swing time, stance/swing ratio, swing peak and shank excursion, stride-time variability (CV within passes of at least 5 strides, first and last stride left out), heel force, heel contact and loading rate (also per condition and in the summary CSV); bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s
 - **3D orientation** view (Madgwick filter, accelerometer + gyroscope) with a model of the board, drag with mouse or finger to rotate the camera, "Zero" to reset orientation and gyro offset
 - **Force sensor** voltage plot with current range, **battery voltage** with a rough charge estimate (LiPo, only meaningful without USB charging)
@@ -302,7 +310,14 @@ The live plot of the sagittal angular rate shows whether the result is right (la
 2. Enter a **pseudonym** (1–8 characters, no names), the **side** and the **threshold** (default 2 kg), then **Start measurement**. The device logs on its own until **Stop measurement**, even without the app.
 3. **Read new data** loads only the entries added since the last readout (about 4 s per 13,000 entries). The data stays in the browser; **Save raw data (.bin)** keeps everything and can be opened again later without the device.
 4. **Analysis** per measurement: duration, strides, share of strides with heel peak above an adjustable threshold (primary endpoint), mean heel peak, minutes with movement, time standing with load; strides per hour as a chart and table; events.
-5. **CSV** export of strides, minutes, hours and events (local time and Unix ms).
+5. **Gait measures in daily life**, per day and in total:
+   - *Walking bouts* (Mobilise-D definition: at least 2 strides, pauses below 3 s): number, walking time, bouts < 10 s, 10–30 s, 30–60 s and > 60 s, longest and median duration.
+   - *Cadence* (steps/min): median and 95th percentile over bouts of at least 10 s, peak 1-minute and peak 30-minute cadence (mean of the 30 best minutes, Tudor-Locke), minutes at ≥ 100 steps/min.
+   - *Stance and swing:* stance %, swing time, stance/swing ratio, swing peak, shank excursion.
+   - *Variability:* CV of stride time, stance time and heel peak within bouts of at least 20 strides, without the first and last 2.
+   - *Heel load:* total and per-stride impulse (cumulative load), share above the threshold, median peak, heel contact and loading rate.
+   - *Posture at rest:* movement, upright without heel load (sitting or standing unloaded), standing with heel load, lying / leg up.
+6. **CSV** export of strides, minutes, hours, events, gait measures (one row per day) and walking bouts (local time and Unix ms).
 
 Read out before a firmware update: the update erases the log.
 

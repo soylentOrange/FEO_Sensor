@@ -25,9 +25,9 @@ static float nrand(void) { return ((rand() / (float)RAND_MAX) - 0.5f) * 3.46f; }
 
 static void print(const struct gait_stride *s)
 {
-	printf("#S %3u t=%6u stride=%4u stance=%4u MS=%6.1f IC=%7.1f TO=%7.1f Fpk=%5.1f Fm=%5.1f imp=%5.2f tpk=%3u Fsw=%5.2f fl=%x\n",
+	printf("#S %3u t=%6u stride=%4u stance=%4u MS=%6.1f IC=%7.1f TO=%7.1f Fpk=%5.1f Fm=%5.1f imp=%5.2f tpk=%3u Fsw=%5.2f ROM=%5.1f heel=%3u%% rate=%6.1f fl=%x\n",
 	       s->seq, s->t_ic_ms, s->stride_ms, s->stance_ms, s->ms_dps, s->ic_dps, s->to_dps,
-	       s->f_peak_kg, s->f_mean_kg, s->f_imp_kgs, s->t_fpeak_ms, s->f_swing_kg, s->flags);
+	       s->f_peak_kg, s->f_mean_kg, s->f_imp_kgs, s->t_fpeak_ms, s->f_swing_kg, s->rom_deg, s->heel_pct, s->f_rate_kgps, s->flags);
 	if (s->seq == 5) {
 		printf("   Kraft über den Gangzyklus (je 5 %%):");
 		for (int b = 0; b < GAIT_BINS; b++) printf(" %.1f", s->f_bins[b]);
@@ -96,6 +96,9 @@ int main(int argc, char **argv)
 	float axis[3], b[3];
 	uint32_t cnt;
 	gait_status(axis, b, &cnt);
+	float lie[3] = { 0, 0, 1 }, up[3] = { 1, 0, 0 };
+	printf("Neigung: Sensor-z %.0f Grad, Sensor-x %.0f Grad (erwartet 0 und 90)\n",
+	       gait_tilt_deg(lie), gait_tilt_deg(up));
 	printf("%d Doppelschritte (erwartet ~28); Achse %.3f %.3f %.3f (wahr %.3f %.3f %.3f); Offset %.2f %.2f %.2f\n",
 	       n, axis[0], axis[1], axis[2], ax[0], ax[1], ax[2], b[0], b[1], b[2]);
 	return 0;
