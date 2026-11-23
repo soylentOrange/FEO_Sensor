@@ -1227,9 +1227,9 @@ function drawCal() {
   });
 }
 
-// Falls keine Akku-Notifications ankommen: alle 5 s selbst lesen
+// If no battery notification arrived for a while (the board sends one every 10 s, in rest mode every minute), read it
 setInterval(async () => {
-  if (!batChr || fwBusy || Date.now() - batT < 4000) return;
+  if (!batChr || fwBusy || Date.now() - batT < 75000) return;
   try { batMv = (await batChr.readValue()).getUint16(0, true); batT = Date.now(); } catch (e) {}
 }, 5000);
 

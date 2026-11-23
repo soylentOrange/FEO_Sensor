@@ -125,6 +125,10 @@
 #define STEP_LOG         1024  /* Schritt-Datensätze im RAM */
 #define STEP_LEN         (30 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
 #define ADV_FAST_S       30    /* nach Start/Trennen so lange schnell werben */
+#define ADV_SLOW_MIN     3200  /* then every 2.0..2.2 s (units of 0.625 ms) */
+#define ADV_SLOW_MAX     3520
+#define STATUS_KEEP_S    10    /* status without a change at least this often (active) */
+#define BAT_PUSH_S       10    /* battery notification while active */
 
 #define SAMPLE_PERIOD_MS (1000 / SAMPLE_RATE_HZ)
 #define G_TO_MS2         9.80665
@@ -733,8 +737,9 @@ BT_CONN_CB_DEFINE(conn_cb) = {
 	.recycled = recycled,
 };
 
-/* Werben: nach Start oder Trennen ADV_FAST_S lang alle 100..150 ms (schnell
- * gefunden), danach alle 1..1,2 s (spart Strom, Verbinden dauert etwas länger) */
+/* Advertising: after start or disconnect every 100..150 ms for ADV_FAST_S (found
+ * quickly), then every 2..2.2 s (saves power, connecting takes a bit longer).
+ * Without a connection nothing else is sent. */
 static int64_t adv_fast_until;    /* 0 = wirbt langsam oder gar nicht */
 
 static void adv_start_if_needed(void)
@@ -744,8 +749,8 @@ static void adv_start_if_needed(void)
 	if (adv_fast_until && now > adv_fast_until && !cur_conn) {
 		adv_fast_until = 0;
 		bt_le_adv_stop();
-		int err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONN, BT_GAP_ADV_SLOW_INT_MIN,
-							  BT_GAP_ADV_SLOW_INT_MAX, NULL),
+		int err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONN, ADV_SLOW_MIN,
+							  ADV_SLOW_MAX, NULL),
 					  ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 		if (err) {
 			atomic_set(&need_adv, 1);
@@ -1334,7 +1339,6 @@ static void rest(void)
 		if (now >= fsr_next) {
 			if (dl_running()) {
 				rest_fsr_sample();
-				ble_push_status();
 			}
 			fsr_next = now + REST_FSR_S * 1000;
 		}
@@ -1479,7 +1483,9 @@ int main(void)
 		} else if (n % BAT_PERIOD == 1) {
 			bat_measure();
 			regulator_disable(vbat_sw);
-			ble_push_bat();
+			if (n % (BAT_PUSH_S * SAMPLE_RATE_HZ) == 1) {
+				ble_push_bat();
+			}
 		}
 
 		int32_t fsr_mv;
@@ -1561,9 +1567,14 @@ int main(void)
 			still_s = moving ? 0 : still_s + 1;
 			dl_second(moving, sec_kg, bat_mv);
 			sec_kg = 0;
-			atomic_set(&activity, moving ? 2 : 1);
+			/* status only on a change (strides and log changes push it
+			 * themselves), plus a slow keep-alive */
+			atomic_val_t act = moving ? 2 : 1;
+
+			if (atomic_set(&activity, act) != act || n % (STATUS_KEEP_S * SAMPLE_RATE_HZ) == 0) {
+				ble_push_status();
+			}
 			atomic_set(&still_secs, still_s);
-			ble_push_status();
 			float ax[3], bias[3];
 			uint32_t cnt;
 
