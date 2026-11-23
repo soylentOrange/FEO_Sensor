@@ -86,6 +86,14 @@ Perfboard (left) with the MCP602 and the flat-mounted JST-XH connector, XIAO nRF
 - two short pieces of transparent filament as light guides for the LEDs,
 - an elastic strap to fasten the housing to the lower leg (shank).
 
+<p align="center">
+  <img src="device.jpg" alt="Finished device: printed housing on an elastic strap, JST-XH plug with the on/off bridge and the cable to the round FSR" width="400">
+</p>
+
+Finished device. The housing slides onto the elastic strap; the light guides sit in the two holes at the top edge. The JST-XH plug at the bottom carries the red wire loop that bridges pins 1 and 4 (on/off: unplugging switches the device off) and the grey pair to the FSR. The FSR tails are joined to the cable with heat shrink tubing.
+
+The FSR tails are thin and break easily at the joint. Relieve them from strain: tape or glue the cable to the insole or the shoe near the sensor, so pulling on the cable does not reach the tails, and leave a little slack between plug and foot.
+
 ## Regenerating the drawings
 
 ```
