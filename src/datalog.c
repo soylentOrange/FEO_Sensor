@@ -30,6 +30,7 @@ static uint16_t thr_cg = 200;
 static uint8_t side;
 static char pseudo[8];
 static uint32_t sess_idx;
+static uint8_t ver = DL_VERSION;      /* format of the log in flash */
 
 /* wall clock: Unix ms at uptime 0, 0 = unknown */
 static int64_t unix_ref_ms;
@@ -45,7 +46,7 @@ static uint32_t rd_n;
 /* current minute */
 static struct {
 	int64_t end;
-	uint16_t strides, over, rest_s, rest_max, bat;
+	uint16_t strides, over, rest_s, rest_max, bat, lie_s, up_s;
 	uint8_t move_s;
 } mn;
 static bool bat_low_logged;
@@ -152,21 +153,24 @@ static void minute_write(void)
 
 	sys_put_le16(mn.strides, e + 2);
 	sys_put_le32((uint32_t)k_uptime_get(), e + 4);
-	sys_put_le16(mn.rest_s, e + 8);
+	e[8] = (uint8_t)MIN(mn.rest_s, UINT8_MAX);
+	e[9] = (uint8_t)MIN(mn.lie_s, UINT8_MAX);
 	sys_put_le16(mn.rest_max, e + 10);
 	sys_put_le16(mn.bat, e + 12);
-	sys_put_le16(mn.over, e + 14);
+	e[14] = (uint8_t)MIN(mn.over, UINT8_MAX);
+	e[15] = (uint8_t)MIN(mn.up_s, UINT8_MAX);
 	put(e);
 }
 
 static void write_magic(void)
 {
-	uint8_t e[DL_ENTRY] = { 'F', 'E', 'O', 'L', 1, 0 };
+	uint8_t e[DL_ENTRY] = { 'F', 'E', 'O', 'L', DL_VERSION, 0 };
 
 	sys_put_le16(DL_ENTRY, e + 6);
 	sys_put_le32(cap, e + 8);
 	sys_put_le32(0, e + 12);
 	valid = true;
+	ver = DL_VERSION;
 	head = 0;
 	if (put(e)) {
 		valid = false;
@@ -253,7 +257,8 @@ static void exec(const uint8_t *c)
 		if (running || erase_end || !atomic_get(&allowed) || atomic_get(&dfu)) {
 			break;
 		}
-		if (!valid || (c[4] & 1) || head >= cap - 16) {
+		/* a log in the old format is erased before a new measurement */
+		if (!valid || ver != DL_VERSION || (c[4] & 1) || head >= cap - 16) {
 			memcpy(pending_start, c, CMD_LEN);
 			erase_begin();
 		} else {
@@ -316,8 +321,9 @@ int dl_init(void)
 		return err;
 	}
 	cap = (uint32_t)((fa->fa_size - DL_TAIL) / DL_ENTRY);
-	valid = rd(0, e) == 0 && !memcmp(e, "FEOL", 4) && e[4] == 1 &&
+	valid = rd(0, e) == 0 && !memcmp(e, "FEOL", 4) && (e[4] == 1 || e[4] == DL_VERSION) &&
 		sys_get_le32(e + 8) == cap;
+	ver = valid ? e[4] : DL_VERSION;
 	if (!valid) {
 		printk("# Dauermessung: Speicher leer oder überschrieben (vor dem Start löschen)\n");
 		return 0;
@@ -337,8 +343,9 @@ int dl_init(void)
 	head = lo;
 	full = head >= cap - 1;
 
-	/* was a measurement running at power-off? Search back to session header or stop */
-	for (uint32_t i = head; i-- > 1;) {
+	/* was a measurement running at power-off? Search back to session header or stop
+	 * (an old-format log is only kept for reading out) */
+	for (uint32_t i = head; ver == DL_VERSION && i-- > 1;) {
 		if (rd(i, e)) {
 			break;
 		}
@@ -390,22 +397,32 @@ void dl_status(uint8_t b[DL_STATUS_LEN])
 	sys_put_le32((uint32_t)k_uptime_get(), b + 32);
 }
 
-void dl_stride(uint8_t flags, uint16_t stride_ms, uint32_t t_ic, uint16_t stance_ms,
-	       float peak_kg, float mean_kg, float imp_kgs)
+void dl_stride(const struct gait_stride *s)
 {
 	if (!running) {
 		return;
 	}
-	uint8_t e[DL_ENTRY] = { DL_T_STRIDE, flags };
-	uint16_t pk = cg(peak_kg);
+	uint8_t e[DL_ENTRY] = { DL_T_STRIDE, (uint8_t)s->flags };
+	uint16_t pk = cg(s->f_peak_kg);
 
-	sys_put_le16(stride_ms, e + 2);
-	sys_put_le32(t_ic, e + 4);
-	sys_put_le16(stance_ms, e + 8);
+	sys_put_le16(s->stride_ms, e + 2);
+	sys_put_le32(s->t_ic_ms, e + 4);
+	sys_put_le16(s->stance_ms, e + 8);
 	sys_put_le16(pk, e + 10);
-	sys_put_le16(cg(mean_kg), e + 12);
-	sys_put_le16(cg(imp_kgs), e + 14);
-	put(e);
+	sys_put_le16(cg(s->f_mean_kg), e + 12);
+	sys_put_le16(cg(s->f_imp_kgs), e + 14);
+	if (put(e)) {
+		return;
+	}
+	uint8_t x[DL_ENTRY] = { DL_T_STRIDE_X, s->heel_pct };
+
+	sys_put_le16(s->t_fpeak_ms, x + 2);
+	sys_put_le32(s->t_ic_ms, x + 4);
+	sys_put_le16((uint16_t)CLAMP(lroundf(s->ms_dps * 10.0f), 0, UINT16_MAX), x + 8);
+	sys_put_le16((uint16_t)CLAMP(lroundf(s->rom_deg * 10.0f), 0, UINT16_MAX), x + 10);
+	sys_put_le16((uint16_t)CLAMP(lroundf(s->f_rate_kgps * 10.0f), 0, UINT16_MAX), x + 12);
+	sys_put_le16((uint16_t)(int16_t)CLAMP(lroundf(s->f_swing_kg * 100.0f), INT16_MIN, INT16_MAX), x + 14);
+	put(x);
 	mn.strides++;
 	if (pk > thr_cg) {
 		mn.over++;
@@ -424,7 +441,20 @@ static void bat_note(uint16_t bat_mv)
 	}
 }
 
-void dl_second(bool moving, float still_max_kg, uint16_t bat_mv)
+/* not moving for secs seconds: heel load, else lying / leg up or upright by the shank tilt */
+static void still_note(uint16_t f, float tilt_deg, uint16_t secs)
+{
+	if (f > thr_cg) {
+		mn.rest_s += secs;
+	} else if (tilt_deg > DL_LIE_DEG) {
+		mn.lie_s += secs;
+	} else if (tilt_deg >= 0) {          /* not NAN */
+		mn.up_s += secs;
+	}
+	mn.rest_max = MAX(mn.rest_max, f);
+}
+
+void dl_second(bool moving, float still_max_kg, float tilt_deg, uint16_t bat_mv)
 {
 	if (!running) {
 		return;
@@ -432,27 +462,17 @@ void dl_second(bool moving, float still_max_kg, uint16_t bat_mv)
 	if (moving) {
 		mn.move_s = MIN(mn.move_s + 1, 255);
 	} else {
-		uint16_t f = cg(still_max_kg);
-
-		if (f > thr_cg) {
-			mn.rest_s++;
-		}
-		mn.rest_max = MAX(mn.rest_max, f);
+		still_note(cg(still_max_kg), tilt_deg, 1);
 	}
 	bat_note(bat_mv);
 }
 
-void dl_rest_sample(float kg, uint16_t secs, uint16_t bat_mv)
+void dl_rest_sample(float kg, float tilt_deg, uint16_t secs, uint16_t bat_mv)
 {
 	if (!running) {
 		return;
 	}
-	uint16_t f = cg(kg);
-
-	if (f > thr_cg) {
-		mn.rest_s += secs;
-	}
-	mn.rest_max = MAX(mn.rest_max, f);
+	still_note(cg(kg), tilt_deg, secs);
 	bat_note(bat_mv);
 }
 

@@ -78,7 +78,16 @@ static struct {
 	uint32_t ms_k, ms_prev_k, ic_k, to_k;
 	bool ms_prev_valid, ic_valid, to_valid, to_fallback;
 	uint32_t seq;
+	/* heel contact threshold, shank direction for the tilt */
+	float heel_thr;
+	float axis_z_cal[3];
+	float asum[3], up[3];
+	uint32_t an, up_n;
 } g;
+
+#define RATE_WIN      3       /* loading rate over 30 ms */
+#define UP_ALPHA      0.1f    /* shank direction: running mean over ~10 strides */
+#define UP_MIN_N      5
 
 #define R(i) ((i) % RING)
 #define MINU(a, b) ((a) < (b) ? (a) : (b))
@@ -130,6 +139,25 @@ void gait_init(void)
 	g.bacc_max = -1e9f;
 	bq_lowpass(&g.lp, LP_FC_HZ);
 	bq_lowpass(&g.lpc, LPC_FC_HZ);
+	g.heel_thr = 2.0f;
+}
+
+void gait_set_heel_thr(float kg)
+{
+	g.heel_thr = kg;
+}
+
+float gait_tilt_deg(const float a[3])
+{
+	const float *ref = g.calibrated ? g.axis_z_cal : g.up;
+	float n = sqrtf(dot(a, a));
+
+	if ((!g.calibrated && g.up_n < UP_MIN_N) || !(n > 0.5f)) {
+		return NAN;
+	}
+	float c = fabsf(dot(a, ref)) / n;
+
+	return acosf(fminf(c, 1.0f)) * 57.29578f;
 }
 
 bool gait_frame_valid(const struct gait_frame *f)
@@ -157,6 +185,8 @@ void gait_set_frame(const struct gait_frame *f)
 	if (f && f->stamp && gait_frame_valid(f)) {
 		memcpy(g.axis_cal, f->r[1], sizeof(g.axis_cal));
 		normalize(g.axis_cal);
+		memcpy(g.axis_z_cal, f->r[2], sizeof(g.axis_z_cal));
+		normalize(g.axis_z_cal);
 		g.calibrated = true;
 	} else {
 		g.calibrated = false;
@@ -320,6 +350,41 @@ static bool emit(uint32_t ic_new, struct gait_stride *o)
 		o->f_ph_mean[p] = pb[p + 1] > pb[p] ? sm / (float)(pb[p + 1] - pb[p]) : 0;
 		o->f_ph_peak[p] = pk;
 	}
+	/* heel contact share of stance and largest loading rate up to the peak */
+	uint32_t hc = 0;
+	float rate = 0;
+
+	for (uint32_t i = ic; i < to; i++) {
+		if (g.rkg[R(i)] > g.heel_thr) {
+			hc++;
+		}
+		if (i + RATE_WIN <= kmax) {
+			rate = fmaxf(rate, (fminf(g.rkg[R(i + RATE_WIN)], KG_CAP) -
+					    fminf(g.rkg[R(i)], KG_CAP)) * GAIT_FS_HZ / RATE_WIN);
+		}
+	}
+	o->heel_pct = (uint8_t)((hc * 100 + (to - ic) / 2) / (to - ic));
+	o->f_rate_kgps = rate;
+	/* sagittal shank excursion: integrated angular rate over the stride */
+	float ang = 0, amin = 0, amax = 0;
+
+	for (uint32_t i = ic + 1; i < ic_new; i++) {
+		ang += g.rw[R(i)] / GAIT_FS_HZ;
+		amin = fminf(amin, ang);
+		amax = fmaxf(amax, ang);
+	}
+	o->rom_deg = amax - amin;
+	/* mean acceleration over the stride = shank direction while walking */
+	if (g.an + 5 >= ic_new - ic && g.an <= ic_new - ic + 5) {
+		float m[3] = { g.asum[0], g.asum[1], g.asum[2] };
+
+		normalize(m);
+		for (int i = 0; i < 3; i++) {
+			g.up[i] = g.up_n ? g.up[i] + UP_ALPHA * (m[i] - g.up[i]) : m[i];
+		}
+		normalize(g.up);
+		g.up_n++;
+	}
 	o->seq = ++g.seq;
 	o->t_ic_ms = g.rt[R(ic)];
 	o->stride_ms = (uint16_t)((ic_new - ic) * MS_PER_SAMPLE);
@@ -399,6 +464,8 @@ void gait_pause(void)
 	memset(g.bsq, 0, sizeof(g.bsq));
 	g.bacc_min = 1e9f;
 	g.bacc_max = -1e9f;
+	memset(g.asum, 0, sizeof(g.asum));
+	g.an = 0;
 }
 
 bool gait_update(uint32_t t_ms, const float g_dps[3], const float a_g[3], float kg,
@@ -424,6 +491,11 @@ bool gait_update(uint32_t t_ms, const float g_dps[3], const float a_g[3], float 
 	float c = bq_run(&g.lpc, x - w);
 
 	uint32_t k = ++g.k;
+
+	for (int i = 0; i < 3; i++) {
+		g.asum[i] += a_g[i];
+	}
+	g.an++;
 
 	g.rw[R(k)] = w;
 	g.rc[R(k)] = c;
@@ -464,6 +536,8 @@ bool gait_update(uint32_t t_ms, const float g_dps[3], const float a_g[3], float 
 			uint32_t ic = (-w < g.rw[R(k - 1)]) ? k : k - 1;
 
 			done = emit(ic, out);
+			memset(g.asum, 0, sizeof(g.asum));
+			g.an = 0;
 			g.ic_k = ic;
 			g.ic_valid = true;
 			g.to_valid = false;
