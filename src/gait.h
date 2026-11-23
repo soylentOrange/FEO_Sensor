@@ -68,6 +68,9 @@ struct gait_stride {
 	float f_bins[GAIT_BINS];/* Kraft über den Gangzyklus, IC = 0 %, nächster IC = 100 % */
 	float f_ph_mean[GAIT_PHASES];  /* Kraft je Gangphase (Rancho Los Amigos), Mittel */
 	float f_ph_peak[GAIT_PHASES];  /* ... und Maximum */
+	float rom_deg;          /* sagittal shank excursion over the stride (max - min angle, deg) */
+	float f_rate_kgps;      /* largest heel loading rate in stance before the peak (kg/s, 30 ms slope) */
+	uint8_t heel_pct;       /* share of stance with heel load > heel threshold (%) */
 	uint16_t flags;
 };
 
@@ -78,6 +81,18 @@ void gait_set_frame(const struct gait_frame *f);
 bool gait_frame_valid(const struct gait_frame *f);
 /* Achse, die gerade für die Schritterkennung benutzt wird, und Gyro-Offset */
 void gait_status(float axis[3], float bias_dps[3], uint32_t *count);
+
+/* Heel load threshold for heel_pct (kg) */
+void gait_set_heel_thr(float kg);
+
+/*
+ * Tilt of the shank against vertical (deg, 0..90) for a mean acceleration a (g):
+ * angle between a and the shank axis (z of the calibrated frame, otherwise the mean
+ * acceleration over the last strides, i.e. the shank direction while walking).
+ * NAN as long as neither is known. About 0 standing or sitting, about 90 lying or
+ * with the leg up on a stool.
+ */
+float gait_tilt_deg(const float a[3]);
 
 /* Messung unterbrochen (Ruhemodus): laufenden Schritt verwerfen */
 void gait_pause(void);

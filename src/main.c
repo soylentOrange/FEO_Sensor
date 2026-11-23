@@ -57,11 +57,14 @@
  *   uint16 f_imp (0,01 kg*s), uint16 t_fpeak_ms, int16 f_swing (0,01 kg), uint16 flags,
  *   20 x uint16 Kraft über den Gangzyklus (Mittel über je 5 %, IC = 0 %, 0,01 kg),
  *   8 x uint16 Mittel, 8 x uint16 Maximum der Kraft je Gangphase nach Rancho Los Amigos
- *   (IC, LR, MSt, TSt, PSw, ISw, MSw, TSw; Grenzen siehe src/gait.h; 0,01 kg) (102 Byte). Die letzten STEP_LOG Datensätze bleiben im RAM; uint32 seq schreiben
+ *   (IC, LR, MSt, TSt, PSw, ISw, MSw, TSw; Grenzen siehe src/gait.h; 0,01 kg),
+ *   uint16 sagittal shank excursion (0.1 deg), uint16 largest loading rate (0.1 kg/s),
+ *   uint8 heel contact (% of stance with heel load > threshold), uint8 0 (108 bytes). Die letzten STEP_LOG Datensätze bleiben im RAM; uint32 seq schreiben
  *   schickt alle ab dieser Nummer noch einmal (z. B. nach einer Unterbrechung).
  * Seriell erscheint jeder Datensatz als Kommentarzeile
  *   #S,seq,t_ic_ms,stride_ms,stance_ms,ms_dps,ic_dps,to_dps,f_peak_kg,f_mean_kg,f_imp_kgs,t_fpeak_ms,f_swing_kg,flags,
- *     f_0..f_19 (kg je 5 % des Gangzyklus), 8 x Mittel und 8 x Maximum je Gangphase (kg)
+ *     f_0..f_19 (kg je 5 % des Gangzyklus), 8 x Mittel und 8 x Maximum je Gangphase (kg),
+ *     rom_deg, f_rate_kgps, heel_pct
  *
  * Characteristic FEO_CTRL_UUID (read, write, notify about once per second): status of
  *   the long-term log plus activity, and control commands (see src/datalog.h, README).
@@ -123,7 +126,7 @@
 #define REST_BAT_S       60    /* Akku im Ruhemodus messen */
 #define REST_FSR_S       5     /* rest mode while logging: sample heel load every 5 s */
 #define STEP_LOG         1024  /* Schritt-Datensätze im RAM */
-#define STEP_LEN         (30 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
+#define STEP_LEN         (36 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
 #define ADV_FAST_S       30    /* nach Start/Trennen so lange schnell werben */
 
 #define SAMPLE_PERIOD_MS (1000 / SAMPLE_RATE_HZ)
@@ -843,6 +846,12 @@ static void step_store(const struct gait_stride *s)
 		sys_put_le16(u16(s->f_ph_mean[i], 100), b + 30 + 2 * GAIT_BINS + 2 * i);
 		sys_put_le16(u16(s->f_ph_peak[i], 100), b + 30 + 2 * GAIT_BINS + 2 * GAIT_PHASES + 2 * i);
 	}
+	uint8_t *x = b + 30 + 2 * GAIT_BINS + 4 * GAIT_PHASES;
+
+	sys_put_le16(u16(s->rom_deg, 10), x);
+	sys_put_le16(u16(s->f_rate_kgps, 10), x + 2);
+	x[4] = s->heel_pct;
+	x[5] = 0;
 	step_last = s->seq;
 }
 
@@ -851,7 +860,7 @@ static void step_print(const struct gait_stride *s)
 	if (!IS_ENABLED(CONFIG_PRINTK) || !(atomic_get(&outputs) & OUT_SER_STEP)) {
 		return;
 	}
-	char line[100 + 7 * (GAIT_BINS + 2 * GAIT_PHASES)];
+	char line[130 + 7 * (GAIT_BINS + 2 * GAIT_PHASES)];
 	int n = snprintk(line, sizeof(line), "#S,%u,%u,%u,%u,%.1f,%.1f,%.1f,%.2f,%.2f,%.2f,%u,%.2f,%u",
 			 s->seq, s->t_ic_ms, s->stride_ms, s->stance_ms, (double)s->ms_dps,
 			 (double)s->ic_dps, (double)s->to_dps, (double)s->f_peak_kg,
@@ -864,6 +873,10 @@ static void step_print(const struct gait_stride *s)
 	for (int i = 0; i < 2 * GAIT_PHASES && n > 0 && n < (int)sizeof(line); i++) {
 		n += snprintk(line + n, sizeof(line) - n, ",%.2f", (double)(i < GAIT_PHASES ?
 			      s->f_ph_mean[i] : s->f_ph_peak[i - GAIT_PHASES]));
+	}
+	if (n > 0 && n < (int)sizeof(line)) {
+		snprintk(line + n, sizeof(line) - n, ",%.1f,%.1f,%u", (double)s->rom_deg,
+			 (double)s->f_rate_kgps, s->heel_pct);
 	}
 	printk("%s\n", line);
 }
@@ -1168,6 +1181,7 @@ static int imu_configure(void)
 #define LSM_WAKE_UP_THS  0x5B
 #define LSM_WAKE_UP_DUR  0x5C
 #define LSM_MD1_CFG      0x5E
+#define LSM_OUTX_L_XL    0x28
 #define LSM_INT1_WU      BIT(5)
 #define WAKE_THS         2          /* x FS/64 = 2 x 31 mg bei ±2 g */
 
@@ -1300,7 +1314,20 @@ static void rest_fsr_sample(void)
 	k_msleep(50);                              /* amplifier and low-pass settle */
 	fsr_measure(&mv);
 	gpio_pin_set_dt(&fsr_pwr, 0);
-	dl_rest_sample(adc_ok ? fsr_kg(mv) : 0, REST_FSR_S, bat_mv);
+	/* shank tilt from the accelerometer, which keeps running in low-power mode
+	 * (only the direction counts, so the range does not matter) */
+	uint8_t r[6];
+	float tilt = NAN;
+
+	if (i2c_burst_read_dt(&imu_i2c, LSM_OUTX_L_XL, r, sizeof(r)) == 0) {
+		float a[3];
+
+		for (int i = 0; i < 3; i++) {
+			a[i] = (float)(int16_t)sys_get_le16(r + 2 * i) / 16384.0f;   /* +-2 g */
+		}
+		tilt = gait_tilt_deg(a);
+	}
+	dl_rest_sample(adc_ok ? fsr_kg(mv) : 0, tilt, REST_FSR_S, bat_mv);
 }
 
 /* Schlafen, bis sich das Bein bewegt oder die App Rohdaten anfordert */
@@ -1452,6 +1479,7 @@ int main(void)
 	bool moving = true;           /* Bewegung in der letzten Sekunde */
 	float blk_max = 0;            /* größte Abweichung in der laufenden Sekunde */
 	float sec_kg = 0;             /* max heel load in the current second */
+	float sec_a[3] = { 0 };       /* acceleration summed over the current second */
 
 	if (dl_running() && (atomic_get(&outputs) & OUT_SER_CSV)) {
 		printk("# Hinweis: Dauermessung läuft, serielle CSV-Ausgabe kostet Strom\n");
@@ -1533,11 +1561,13 @@ int main(void)
 			float kg = adc_ok ? fsr_kg(fsr_mv) : 0;
 
 			sec_kg = fmaxf(sec_kg, kg);
+			for (int i = 0; i < 3; i++) {
+				sec_a[i] += af[i];
+			}
 			if (gait_update(t, gf, af, kg, &st)) {
 				step_store(&st);
 				step_print(&st);
-				dl_stride((uint8_t)st.flags, st.stride_ms, st.t_ic_ms, st.stance_ms,
-					  st.f_peak_kg, st.f_mean_kg, st.f_imp_kgs);
+				dl_stride(&st);
 				atomic_inc(&stride_total);
 				ble_push_status();         /* lets the app flash its activity badge */
 				if (cur_conn && atomic_get(&step_notify_on) && atomic_get(&step_resend) < 0 &&
@@ -1559,8 +1589,10 @@ int main(void)
 			moving = blk_max > 1.0f;
 			blk_max = 0;
 			still_s = moving ? 0 : still_s + 1;
-			dl_second(moving, sec_kg, bat_mv);
+			dl_second(moving, sec_kg, gait_tilt_deg(sec_a), bat_mv);
 			sec_kg = 0;
+			memset(sec_a, 0, sizeof(sec_a));
+			gait_set_heel_thr(dl_thr_kg());
 			atomic_set(&activity, moving ? 2 : 1);
 			atomic_set(&still_secs, still_s);
 			ble_push_status();

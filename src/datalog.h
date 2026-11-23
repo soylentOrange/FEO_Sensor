@@ -8,7 +8,8 @@
  *
  * Layout: 16-byte entries (little endian), contiguous from index 0, followed
  * by erased flash (0xFF). Entry 0 is the log header:
- *   char[4] "FEOL", uint8 version (1), uint8 0, uint16 16, uint32 capacity, uint32 0
+ *   char[4] "FEOL", uint8 version (2; 1 = firmware before v0.8.0), uint8 0, uint16 16,
+ *   uint32 capacity, uint32 0
  * Then, in any order (byte 0 = type):
  *
  * DL_T_SESSION: start of a measurement
@@ -17,11 +18,20 @@
  * DL_T_STRIDE: one stride
  *   uint8 type, uint8 flags (GAIT_F_*), uint16 stride_ms, uint32 t_ic (ms uptime),
  *   uint16 stance_ms, uint16 f_peak, uint16 f_mean (0.01 kg), uint16 f_imp (0.01 kg*s)
+ * DL_T_STRIDE_X: more of the same stride, written right after its DL_T_STRIDE (version 2)
+ *   uint8 type, uint8 heel contact (% of stance with heel load > threshold, 255 = unknown),
+ *   uint16 t_fpeak_ms (IC to peak), uint32 t_ic (ms uptime, as in DL_T_STRIDE),
+ *   uint16 mid-swing angular rate (0.1 deg/s), uint16 sagittal shank excursion (0.1 deg),
+ *   uint16 largest loading rate (0.1 kg/s), int16 mean heel load in swing (0.01 kg)
  * DL_T_MINUTE: one minute (uptime), written at its end
  *   uint8 type, uint8 seconds with movement, uint16 strides, uint32 t_end (ms uptime),
- *   uint16 seconds with heel load > threshold while not moving (in 5 s steps
- *   during rest mode), uint16 max heel load while not moving (0.01 kg),
- *   uint16 battery (mV), uint16 strides with peak > threshold
+ *   uint8 seconds with heel load > threshold while not moving (in 5 s steps
+ *   during rest mode), uint8 seconds lying or leg up (shank tilt > 60 deg, not moving,
+ *   heel load <= threshold), uint16 max heel load while not moving (0.01 kg),
+ *   uint16 battery (mV), uint8 strides with peak > threshold, uint8 seconds upright
+ *   (sitting or standing) without heel load (not moving, tilt <= 60 deg)
+ *   Version 1: uint16 at offsets 8 and 14 (heel load seconds, strides over threshold),
+ *   no lying/upright seconds.
  * DL_T_EVENT: event
  *   uint8 type, uint8 code (DL_E_*), uint16 arg16, uint32 t (ms uptime),
  *   uint32 Unix s (0 = unknown), uint32 arg32
@@ -36,6 +46,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "gait.h"
 
 #define DL_ENTRY      16
 #define DL_TAIL       (8 * 1024)
@@ -44,6 +55,10 @@
 #define DL_T_STRIDE   2
 #define DL_T_MINUTE   3
 #define DL_T_EVENT    4
+#define DL_T_STRIDE_X 5
+
+#define DL_VERSION    2
+#define DL_LIE_DEG    60.0f   /* shank tilt above this counts as lying / leg up */
 
 #define DL_E_START    1   /* arg16 threshold */
 #define DL_E_STOP     2
@@ -93,10 +108,10 @@ float dl_thr_kg(void);
 void dl_event(uint8_t code, uint16_t arg16, uint32_t arg32);
 
 /* measurements (main loop) */
-void dl_stride(uint8_t flags, uint16_t stride_ms, uint32_t t_ic, uint16_t stance_ms,
-	       float peak_kg, float mean_kg, float imp_kgs);
-void dl_second(bool moving, float still_max_kg, uint16_t bat_mv);
-void dl_rest_sample(float kg, uint16_t secs, uint16_t bat_mv);
+void dl_stride(const struct gait_stride *s);
+/* tilt_deg: shank tilt (gait_tilt_deg), NAN = unknown */
+void dl_second(bool moving, float still_max_kg, float tilt_deg, uint16_t bat_mv);
+void dl_rest_sample(float kg, float tilt_deg, uint16_t secs, uint16_t bat_mv);
 
 /* main loop: commands, erasing, end of minute. Returns true if it must be
  * called again soon (erase or readout in progress). */

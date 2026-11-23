@@ -118,6 +118,7 @@
   .dlt table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
   .dlt th, .dlt td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
   .dlt th { font-weight: 600; color: var(--muted); } .dlt .tbl { max-height: 16em; overflow: auto; }
+  .gm .tbl { max-height: none; } .gm td.gmg { font-weight: 600; padding-top: .6em; }
   .dlt td:first-child, .dlt th:first-child { text-align: left; }
   .outs { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
   .outs label { display: inline-flex; gap: 4px; align-items: center; color: var(--fg); }
@@ -255,6 +256,13 @@
       <div class="tile f"><span data-i18n="gPeak"></span><b id="gtPeak">–</b></div>
       <div class="tile f"><span data-i18n="gLR"></span><b id="gtLR">–</b></div>
       <div class="tile f"><span data-i18n="gSwing"></span><b id="gtSwing">–</b></div>
+      <div class="tile f"><span data-i18n="gHeel"></span><b id="gtHeel">–</b></div>
+      <div class="tile f"><span data-i18n="gRate"></span><b id="gtRate">–</b></div>
+      <div class="tile"><span data-i18n="gSwT"></span><b id="gtSwT">–</b></div>
+      <div class="tile"><span data-i18n="gRatio"></span><b id="gtRatio">–</b></div>
+      <div class="tile"><span data-i18n="gMsw"></span><b id="gtMsw">–</b></div>
+      <div class="tile"><span data-i18n="gRom"></span><b id="gtRom">–</b></div>
+      <div class="tile"><span data-i18n="gCv"></span><b id="gtCv">–</b></div>
     </div>
     <div class="row">
       <label><span data-i18n="gCond"></span> <input id="gCond" list="gCondList" size="14" autocomplete="off"></label>
@@ -269,7 +277,8 @@
       <button id="gClear" data-i18n="gClear"></button>
     </div>
     <div class="tbl gct" id="gCondTblW" hidden><table><thead><tr><th data-i18n="gCond"></th><th>n</th><th data-i18n="gCad"></th><th data-i18n="gStance"></th>
-      <th data-i18n="gPeak"></th><th>LR kg</th><th data-i18n="gSwing"></th></tr></thead><tbody id="gCondTbl"></tbody></table></div>
+      <th data-i18n="gPeak"></th><th>LR kg</th><th data-i18n="gSwing"></th><th data-i18n="gHeel"></th><th data-i18n="gRate"></th>
+      <th data-i18n="gSwT"></th><th data-i18n="gRom"></th><th data-i18n="gCv"></th></tr></thead><tbody id="gCondTbl"></tbody></table></div>
     <div class="hint" data-i18n="gHint"></div>
   </div>
   <div class="card t-gait">
@@ -298,7 +307,8 @@
   <div class="card gt logc t-gait">
     <h2><span data-i18n="gTable"></span></h2>
     <div class="tbl"><table><thead><tr><th>#</th><th>t s</th><th data-i18n="gThStride"></th><th data-i18n="gThStance"></th><th>MS °/s</th>
-      <th data-i18n="gThPeak"></th><th data-i18n="gThMean"></th><th>LR</th><th>MSt</th><th>TSt</th><th>PSw</th><th data-i18n="gThSw"></th><th></th></tr></thead>
+      <th data-i18n="gThPeak"></th><th data-i18n="gThMean"></th><th>LR</th><th>MSt</th><th>TSt</th><th>PSw</th><th data-i18n="gThSw"></th>
+      <th data-i18n="gThHeel"></th><th>ROM °</th><th></th></tr></thead>
       <tbody id="gTb"></tbody></table></div>
   </div>
   <div class="card dl t-log">
@@ -339,6 +349,8 @@
       <button id="dlCsv-minutes" data-i18n="dlCsvM"></button>
       <button id="dlCsv-hours" data-i18n="dlCsvH"></button>
       <button id="dlCsv-events" data-i18n="dlCsvE"></button>
+      <button id="dlCsv-days" data-i18n="dlCsvD"></button>
+      <button id="dlCsv-bouts" data-i18n="dlCsvB"></button>
     </div>
     <div class="row">
       <button id="dlBin" data-i18n="dlBinB"></button>
@@ -364,6 +376,11 @@
     </div>
     <canvas id="dlHc"></canvas>
     <div class="hint" data-i18n="dlHcHint"></div>
+  </div>
+  <div class="card dlt gm t-log">
+    <h2><span data-i18n="gmTitle"></span></h2>
+    <div class="tbl"><table><thead id="gmHead"></thead><tbody id="gmBody"></tbody></table></div>
+    <div class="hint" data-i18n="gmHint"></div>
   </div>
   <div class="card dlt t-log">
     <h2><span data-i18n="dlHours"></span></h2>
@@ -495,6 +512,8 @@ const TEXT = {
     gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen. Bezug ist immer das Sensorbein (0 % = sein Fersenauftritt, TO = seine Zehenablösung). Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–).",
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
     gTable: "Letzte Doppelschritte", gThStride: "Dauer ms", gThStance: "Stand %", gThPeak: "F max", gThMean: "F Stand", gThSw: "F Schw.",
+    gHeel: "Fersenkontakt (% Stand)", gRate: "Belastungsrate (kg/s)", gSwT: "Schwungzeit (s)", gRatio: "Stand/Schwung",
+    gMsw: "Schwung max. (°/s)", gRom: "Unterschenkel-Ausschlag (°)", gCv: "Variabilität DS (CV %)", gThHeel: "Ferse %",
     gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
     gClearAsk: "Alle Schritte aus der Liste löschen? Beim nächsten Verbinden werden sie nicht wieder geladen; der Zähler im Gerät beginnt erst nach dem Aus- und Einschalten wieder bei 0.", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
     tabLog: "Dauermessung", dlTitle: "Dauermessung im Gerät", dlStateL: "Zustand", dlMemL: "Speicher belegt", dlDaysL: "Platz für ≈ Tage",
@@ -511,13 +530,26 @@ const TEXT = {
     dlReadT: "Auslesen und Export", dlReadB: "Neue Daten auslesen", dlReadAllB: "Alles neu auslesen", dlEraseB: "Speicher im Gerät löschen",
     dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen (im Speicher: ${c[2]} Doppelschritte, ${c[3]} Minutenwerte, ${c[4]} Ereignisse, ${c[1]} Messungen)`,
     dlChanged: "# Speicher im Gerät wurde inzwischen gelöscht, lese alles neu", dlHave: n => `${n} Einträge im Browser`,
-    dlCsvL: "CSV:", dlCsvS: "Schritte", dlCsvM: "Minuten", dlCsvH: "Stunden", dlCsvE: "Ereignisse",
+    dlCsvL: "CSV:", dlCsvS: "Schritte", dlCsvM: "Minuten", dlCsvH: "Stunden", dlCsvE: "Ereignisse", dlCsvD: "Gangkennwerte", dlCsvB: "Gehbouts",
+    gmTitle: "Gangkennwerte im Alltag", gmAll: "gesamt", gmPar: "Kennwert",
+    gmHint: "Gehbout: mindestens 2 Doppelschritte, Pausen unter 3 s (Mobilise-D). Kadenz in Schritten/min (= 2 × Doppelschritte). Spitzen-Kadenz: beste Minute bzw. Mittel der 30 besten Minuten (nicht zusammenhängend). Variabilität: CV innerhalb von Bouts mit mindestens 20 Doppelschritten, ohne die ersten und letzten 2. Körperlage aus der Neigung des Unterschenkels und der Fersenlast, nur in Ruhe: „aufrecht ohne Fersenlast“ ist Sitzen oder Stehen mit entlasteter Ferse (nicht unterscheidbar), „Liegen / Bein hoch“ heißt Unterschenkel mehr als 60° geneigt. Fersenkontakt, Belastungsrate, Schwungwerte und Körperlage erst ab Firmware v0.8.0 (sonst –). Tage nach Ortszeit; Einträge ohne Uhrzeit zählen nur bei „gesamt“.",
     dlBinB: "Rohdaten sichern (.bin)", dlOpenB: "Rohdaten öffnen …",
     dlReadHint: "Die App liest nur die neuen Einträge nach. Die Rohdaten (.bin) enthalten alles, was das Gerät gespeichert hat, und lassen sich später wieder öffnen.",
     dlEval: "Auswertung", dlSessSel: "Messung", dlThrA: "Schwelle für die Auswertung (kg)",
     dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · Schwelle im Gerät ${th} kg · Start ${t}` + (nt ? ` · ${nt} Doppelschritte ohne Uhrzeit` : ""),
     dlSumDurL: "Dauer (h)", dlSumOverL: "Doppelschritte > Schwelle (%)", dlSumPkL: "Fersenspitze Mittel (kg)", dlSumMoveL: "Minuten mit Bewegung (h)",
     dlSumRestL: "Stehen mit Last > Schwelle (min)",
+    gm: {
+      gAct: "Gehen", n: "Doppelschritte", steps: "Schritte", walkMin: "Gehzeit in Bouts (min)", bouts: "Gehbouts", b10: "Bouts < 10 s", b30: "Bouts 10–30 s",
+      b60: "Bouts 30–60 s", bLong: "Bouts > 60 s", boutMax: "Längster Bout (s)", boutMed: "Bout-Dauer Median (s)",
+      gCad: "Kadenz (Schritte/min)", cadMed: "Median, Bouts ≥ 10 s", cad95: "95. Perzentil, Bouts ≥ 10 s", peak1: "Spitze 1 min", peak30: "Spitze 30 min",
+      min100: "Minuten ≥ 100 Schritte/min",
+      gRhy: "Stand und Schwung", stance: "Standphase (%)", swing: "Schwungzeit (s)", ratio: "Stand/Schwung", msw: "Schwung max. (°/s)", rom: "Unterschenkel-Ausschlag (°)",
+      gVar: "Variabilität", cvStride: "CV Doppelschrittdauer (%)", cvStance: "CV Standzeit (%)", cvPk: "CV Fersenspitze (%)", varN: "Doppelschritte (Bouts) dafür",
+      gLoad: "Fersenlast", imp: "Kraftstoß gesamt (kg·s)", impStride: "Kraftstoß je Doppelschritt (kg·s)", over: "Doppelschritte > Schwelle (%)", pk: "Fersenspitze Median (kg)",
+      heel: "Fersenkontakt Median (% Stand)", rate: "Belastungsrate Median (kg/s)",
+      gPos: "Körperlage (in Ruhe)", logged: "Erfasst (h)", move: "Bewegung (h)", up: "Aufrecht ohne Fersenlast (h)", standLoad: "Stehen mit Fersenlast (h)", lie: "Liegen / Bein hoch (h)",
+    },
     dlHcHint: "Doppelschritte je Stunde (blau), davon mit Fersenspitze über der Schwelle (orange). „Stehen mit Last“ zählt mit der Schwelle, die beim Start im Gerät eingestellt war.",
     dlHours: "Stundenwerte", dlThHour: "Stunde", dlThN: "DS", dlThOver: "> Schw.", dlThPk: "F̅ Spitze", dlThPkMax: "F max", dlThMove: "Bew. min", dlThRest: "Stehen min",
     dlEvents: "Ereignisse (ohne Ruhe/Aktiv, die stehen in der CSV)", dlThTime: "Zeit", dlThEv: "Ereignis",
@@ -620,6 +652,8 @@ const TEXT = {
     gPhase: "Force per gait phase (Rancho Los Amigos)",
     gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg. The reference is always the sensor leg (0 % = its initial contact, TO = its toe-off). With a stance below 50 % there is no double support, so LR and PSw are left out (–).",
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
+    gHeel: "Heel contact (% stance)", gRate: "Loading rate (kg/s)", gSwT: "Swing time (s)", gRatio: "Stance/swing",
+    gMsw: "Swing peak (°/s)", gRom: "Shank excursion (°)", gCv: "Stride variability (CV %)", gThHeel: "Heel %",
     gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
     gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
     gClearAsk: "Delete all steps from the list? They are not loaded again on the next connect; the counter in the device only restarts at 0 after switching it off and on.", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
@@ -637,13 +671,26 @@ const TEXT = {
     dlReadT: "Readout and export", dlReadB: "Read new data", dlReadAllB: "Read everything again", dlEraseB: "Erase device memory",
     dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Long-term: ${n} entries read in ${s} s (in memory: ${c[2]} strides, ${c[3]} minute records, ${c[4]} events, ${c[1]} measurements)`,
     dlChanged: "# Device memory was erased in the meantime, reading everything", dlHave: n => `${n} entries in the browser`,
-    dlCsvL: "CSV:", dlCsvS: "Strides", dlCsvM: "Minutes", dlCsvH: "Hours", dlCsvE: "Events",
+    dlCsvL: "CSV:", dlCsvS: "Strides", dlCsvM: "Minutes", dlCsvH: "Hours", dlCsvE: "Events", dlCsvD: "Gait measures", dlCsvB: "Walking bouts",
+    gmTitle: "Gait measures in daily life", gmAll: "total", gmPar: "Measure",
+    gmHint: "Walking bout: at least 2 strides, pauses below 3 s (Mobilise-D). Cadence in steps/min (= 2 × strides). Peak cadence: best minute or mean of the 30 best minutes (not necessarily consecutive). Variability: CV within bouts of at least 20 strides, without the first and last 2. Posture from shank tilt and heel load, at rest only: “upright without heel load” is sitting or standing with the heel unloaded (not distinguishable), “lying / leg up” means the shank is tilted more than 60°. Heel contact, loading rate, swing values and posture need firmware v0.8.0 or later (otherwise –). Days in local time; entries without wall-clock time only count in “total”.",
     dlBinB: "Save raw data (.bin)", dlOpenB: "Open raw data …",
     dlReadHint: "The app only reads the new entries. The raw data (.bin) contains everything the device stored and can be opened again later.",
     dlEval: "Analysis", dlSessSel: "Measurement", dlThrA: "Threshold for the analysis (kg)",
     dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · device threshold ${th} kg · start ${t}` + (nt ? ` · ${nt} strides without clock time` : ""),
     dlSumDurL: "Duration (h)", dlSumOverL: "Strides > threshold (%)", dlSumPkL: "Mean heel peak (kg)", dlSumMoveL: "Minutes with movement (h)",
     dlSumRestL: "Standing with load > threshold (min)",
+    gm: {
+      gAct: "Walking", n: "Strides", steps: "Steps", walkMin: "Walking time in bouts (min)", bouts: "Walking bouts", b10: "Bouts < 10 s", b30: "Bouts 10–30 s",
+      b60: "Bouts 30–60 s", bLong: "Bouts > 60 s", boutMax: "Longest bout (s)", boutMed: "Bout duration median (s)",
+      gCad: "Cadence (steps/min)", cadMed: "Median, bouts ≥ 10 s", cad95: "95th percentile, bouts ≥ 10 s", peak1: "Peak 1 min", peak30: "Peak 30 min",
+      min100: "Minutes ≥ 100 steps/min",
+      gRhy: "Stance and swing", stance: "Stance (%)", swing: "Swing time (s)", ratio: "Stance/swing", msw: "Swing peak (°/s)", rom: "Shank excursion (°)",
+      gVar: "Variability", cvStride: "CV stride time (%)", cvStance: "CV stance time (%)", cvPk: "CV heel peak (%)", varN: "Strides (bouts) used",
+      gLoad: "Heel load", imp: "Total impulse (kg·s)", impStride: "Impulse per stride (kg·s)", over: "Strides > threshold (%)", pk: "Heel peak median (kg)",
+      heel: "Heel contact median (% stance)", rate: "Loading rate median (kg/s)",
+      gPos: "Posture (at rest)", logged: "Logged (h)", move: "Movement (h)", up: "Upright without heel load (h)", standLoad: "Standing with heel load (h)", lie: "Lying / leg up (h)",
+    },
     dlHcHint: "Strides per hour (blue), of which with heel peak above the threshold (orange). “Standing with load” uses the threshold set in the device at start.",
     dlHours: "Hourly values", dlThHour: "Hour", dlThN: "Strides", dlThOver: "> thr.", dlThPk: "Mean peak", dlThPkMax: "F max", dlThMove: "Move min", dlThRest: "Stand min",
     dlEvents: "Events (without rest/wake, those are in the CSV)", dlThTime: "Time", dlThEv: "Event",
@@ -1771,6 +1818,8 @@ function addStep(s) {
   const pb = phaseBounds(Math.round(s.stride / 10), Math.round(s.stance / 10));
   PHASES.forEach((_, p) => { if (!(pb[p + 1] > pb[p])) s.phm[p] = s.php[p] = null; });
   stepKeys.add(stepKey(s));
+  s.pk = s.fpk; s.msw = s.ms;
+  if (s.rom === undefined) s.rom = s.rate = s.heel = null;
   s.cond = condAt(s);
   const vm = videoMs(s.t);
   if (vm !== null && vm >= 0) { s.vid = vId; s.video_ms = vm; }
@@ -1787,14 +1836,17 @@ function stepPacket(dv) {
   for (let k = 0; k < BINS + 16; k++) r.push(u(30 + 2 * k) / 100);
   addStep({ seq: dv.getUint32(0, true), t: dv.getUint32(4, true), stride: u(8), stance: u(10),
             ms: i(12) / 10, ic: i(14) / 10, to: i(16) / 10, fpk: u(18) / 100, fmean: u(20) / 100, fimp: u(22) / 100,
-            tpk: u(24), fsw: i(26) / 100, flags: u(28), bins: r.slice(0, BINS), phm: r.slice(BINS, BINS + 8), php: r.slice(BINS + 8) });
+            tpk: u(24), fsw: i(26) / 100, flags: u(28), bins: r.slice(0, BINS), phm: r.slice(BINS, BINS + 8), php: r.slice(BINS + 8),
+            // firmware >= v0.8.0: shank excursion, loading rate, heel contact
+            ...(dv.byteLength >= STEP_LEN + 6 ? { rom: u(STEP_LEN) / 10, rate: u(STEP_LEN + 2) / 10, heel: dv.getUint8(STEP_LEN + 4) } : {}) });
   stepLoadCount++;
 }
 function stepCsv(line) {
   const p = line.split(",").slice(1).map(Number);
   if (p.length < 13 + BINS + 16 || p.some(Number.isNaN)) return;
   addStep({ seq: p[0], t: p[1], stride: p[2], stance: p[3], ms: p[4], ic: p[5], to: p[6], fpk: p[7], fmean: p[8], fimp: p[9],
-            tpk: p[10], fsw: p[11], flags: p[12], bins: p.slice(13, 13 + BINS), phm: p.slice(13 + BINS, 21 + BINS), php: p.slice(21 + BINS, 29 + BINS) });
+            tpk: p[10], fsw: p[11], flags: p[12], bins: p.slice(13, 13 + BINS), phm: p.slice(13 + BINS, 21 + BINS), php: p.slice(21 + BINS, 29 + BINS),
+            ...(p.length >= 32 + BINS ? { rom: p[29 + BINS], rate: p[30 + BINS], heel: p[31 + BINS] } : {}) });
 }
 // fehlende Datensätze anfordern (all = alle im Gerät gespeicherten)
 let stepLoadCount = 0;
@@ -1844,6 +1896,8 @@ $("gCond").onchange = () => {
   gaitDirty = true;
 };
 $("gCondSel").onchange = () => { gaitDirty = true; };
+// Lab: walkways are short, so bouts of at least 5 strides without the first and last one
+const labVar = a => variability(walkBouts(a, s => s.sess + "|" + s.cond), 5, 1);
 function renderConds() {
   const conds = [...new Set(steps.map(s => s.cond))], sel = $("gCondSel"), cur = sel.value || "*";
   sel.innerHTML = `<option value="*">${T("gCondAll")}</option>` +
@@ -1853,18 +1907,19 @@ function renderConds() {
   $("gCondTblW").hidden = !named.length;
   const f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
   $("gCondTbl").innerHTML = conds.map(c => {
-    const a = steps.filter(s => s.cond === c);
+    const a = steps.filter(s => s.cond === c), m = strideMeasures(a), v = labVar(a);
     return `<tr><td>${c ? c.replace(/</g, "&lt;") : T("gCondNone")}</td><td>${a.length}</td><td>${f(120000 / mean(a.map(s => s.stride)), 0)}</td>` +
       `<td>${f(mean(a.map(s => 100 * s.stance / s.stride)), 0)}</td><td>${f(mean(a.map(s => s.fpk)), 1)}</td>` +
-      `<td>${f(mean(a.map(s => s.phm[1])), 1)}</td><td>${f(mean(a.map(s => s.fsw)), 2)}</td></tr>`;
+      `<td>${f(mean(a.map(s => s.phm[1])), 1)}</td><td>${f(mean(a.map(s => s.fsw)), 2)}</td>` +
+      `<td>${f(m.heel, 0)}</td><td>${f(m.rate, 0)}</td><td>${f(m.swing, 2)}</td><td>${f(m.rom, 0)}</td><td>${f(v.stride, 1)}</td></tr>`;
   }).join("");
 }
 $("gCsv").onclick = () => {
   const head = ["series", "condition", "seq", "t_ic_ms", "stride_ms", "stance_ms", "ms_dps", "ic_dps", "to_dps", "f_peak_kg", "f_mean_kg", "f_imp_kgs",
     "t_fpeak_ms", "f_swing_kg", "flags", ...Array.from({ length: BINS }, (_, i) => "f_" + (i * 100 / BINS) + "pct"),
-    ...PHASES.map(p => p + "_mean_kg"), ...PHASES.map(p => p + "_max_kg")].join(",");
+    ...PHASES.map(p => p + "_mean_kg"), ...PHASES.map(p => p + "_max_kg"), "swing_ms", "rom_deg", "f_rate_kgps", "heel_pct"].join(",");
   const row = s => [s.sess, csvTxt(s.cond), s.seq, s.t, s.stride, s.stance, s.ms, s.ic, s.to, s.fpk, s.fmean, s.fimp, s.tpk, s.fsw, s.flags,
-    ...s.bins, ...s.phm, ...s.php].join(",");
+    ...s.bins, ...s.phm, ...s.php, s.stride - s.stance, s.rom ?? "", s.rate ?? "", s.heel ?? ""].join(",");
   const ts = fileTs(), conds = [...new Set(steps.map(s => s.cond))];
   // one file per test condition, plus a summary with one line per condition
   conds.forEach(c => {
@@ -1873,11 +1928,13 @@ $("gCsv").onclick = () => {
   });
   if (conds.some(c => c)) {
     const f = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "";
-    const sh = "condition,strides,cadence_spm,stride_s,stance_pct,f_peak_kg,f_mean_kg,f_swing_kg," + PHASES.map(p => p + "_mean_kg").join(",");
-    const sr = conds.map(c => { const a = steps.filter(s => s.cond === c), st = mean(a.map(s => s.stride));
+    const sh = "condition,strides,cadence_spm,stride_s,stance_pct,f_peak_kg,f_mean_kg,f_swing_kg," + PHASES.map(p => p + "_mean_kg").join(",") +
+      ",swing_s,stance_swing_ratio,swing_peak_dps,rom_deg,heel_contact_pct_median,f_rate_kgps_median,cv_stride_pct,cv_stance_pct,cv_f_peak_pct,cv_strides_used";
+    const sr = conds.map(c => { const a = steps.filter(s => s.cond === c), st = mean(a.map(s => s.stride)), m = strideMeasures(a), v = labVar(a);
       return [csvTxt(c), a.length, f(120000 / st, 1), f(st / 1000, 3), f(mean(a.map(s => 100 * s.stance / s.stride)), 1),
         f(mean(a.map(s => s.fpk)), 2), f(mean(a.map(s => s.fmean)), 2), f(mean(a.map(s => s.fsw)), 2),
-        ...PHASES.map((_, p) => f(mean(a.map(s => s.phm[p])), 2))].join(","); });
+        ...PHASES.map((_, p) => f(mean(a.map(s => s.phm[p])), 2)),
+        f(m.swing, 3), f(m.ratio, 2), f(m.msw, 0), f(m.rom, 1), f(m.heel, 0), f(m.rate, 1), f(v.stride, 2), f(v.stance, 2), f(v.pk, 2), v.n].join(","); });
     log(T("logSaved", conds.length, download(sh + "\n" + sr.join("\n") + "\n", `feo_bedingungen_${ts}.csv`)));
   }
 };
@@ -1892,6 +1949,51 @@ function phaseBounds(L, Tt) {
 const csvTxt = x => /[",\n]/.test(x || "") ? `"${x.replace(/"/g, '""')}"` : (x || "");
 const mean = a => { a = a.filter(Number.isFinite); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; };
 const sdev = a => { a = a.filter(Number.isFinite); const m = mean(a); return a.length > 1 ? Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)) : 0; };
+const quant = (a, q) => { a = a.filter(Number.isFinite).sort((x, y) => x - y); if (!a.length) return NaN;
+  const i = (a.length - 1) * q, lo = Math.floor(i); return a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (i - lo); };
+const median = a => quant(a, 0.5);
+const sum = a => a.filter(Number.isFinite).reduce((x, y) => x + y, 0);
+
+// ---------- Gait measures (lab and daily life) ----------
+// Walking bout (Mobilise-D): at least 2 strides, pauses (end of one stride to the next IC) below 3 s.
+// Strides need t (device uptime of IC, ms), stride (ms) and a series key (same uptime base).
+const BOUT_GAP_MS = 3000;
+function walkBouts(strides, key) {
+  const out = [];
+  let cur = null;
+  strides.forEach(s => {
+    const k = key(s), last = cur && cur[cur.length - 1];
+    if (last && last.k === k && s.t > last.s.t && s.t - (last.s.t + last.s.stride) < BOUT_GAP_MS) cur.push({ k, s });
+    else { if (cur) out.push(cur); cur = [{ k, s }]; }
+  });
+  if (cur) out.push(cur);
+  return out.filter(b => b.length >= 2).map(b => {
+    const st = b.map(x => x.s), a = st[0], z = st[st.length - 1];
+    return { strides: st, n: st.length, dur: (z.t + z.stride - a.t) / 1000, cad: 120000 / mean(st.map(x => x.stride)), ms: a.ms };
+  });
+}
+// Variability: CV (%) within each bout of at least minN strides, without trim strides at each end
+// (speeding up, slowing down), averaged over the bouts weighted by the strides used.
+function variability(bouts, minN, trim) {
+  const cv = a => { const m = mean(a); return m > 0 ? 100 * sdev(a) / m : NaN; };
+  const r = { n: 0, bouts: 0, stride: 0, stance: 0, pk: 0 };
+  bouts.forEach(b => {
+    if (b.n < minN) return;
+    const a = b.strides.slice(trim, b.n - trim), w = a.length;
+    if (w < 3) return;
+    r.stride += w * cv(a.map(x => x.stride)); r.stance += w * cv(a.map(x => x.stance)); r.pk += w * cv(a.map(x => x.pk));
+    r.n += w; r.bouts++;
+  });
+  ["stride", "stance", "pk"].forEach(k => r[k] = r.n ? r[k] / r.n : NaN);
+  return r;
+}
+// Measures common to both tabs from a list of strides (fields pk, stance, stride, imp, heel, rate, msw, rom)
+function strideMeasures(st) {
+  const sw = st.map(x => x.stride - x.stance);
+  return { stance: mean(st.map(x => 100 * x.stance / x.stride)), swing: mean(sw) / 1000,
+    ratio: mean(st.map(x => x.stance)) / mean(sw), msw: mean(st.map(x => x.msw)), rom: mean(st.map(x => x.rom)),
+    heel: median(st.map(x => x.heel)), rate: median(st.map(x => x.rate)) };
+}
 function selSteps() {
   const c = $("gCondSel").value, n = Number($("gSel").value), a = c === "*" ? steps : steps.filter(s => s.cond === c);
   return n ? a.slice(-n) : a;
@@ -1999,11 +2101,20 @@ function renderGait() {
   $("gtPeak").textContent = f(mean(sel.map(s => s.fpk)), 1);
   $("gtLR").textContent = f(mean(sel.map(s => s.phm[1])), 1);
   $("gtSwing").textContent = f(mean(sel.map(s => s.fsw)), 2);
+  const m = strideMeasures(sel);
+  $("gtHeel").textContent = f(m.heel, 0);
+  $("gtRate").textContent = f(m.rate, 0);
+  $("gtSwT").textContent = f(m.swing, 2);
+  $("gtRatio").textContent = f(m.ratio, 2);
+  $("gtMsw").textContent = f(m.msw, 0);
+  $("gtRom").textContent = f(m.rom, 0);
+  $("gtCv").textContent = f(labVar(sel).stride, 1);
   drawPhases(sel); drawCycle(sel); drawTrend();
   $("gTb").innerHTML = steps.slice(-30).reverse().map(s =>
     `<tr><td>${s.seq}</td><td>${(s.t / 1000).toFixed(1)}</td><td>${s.stride}</td><td>${(100 * s.stance / s.stride).toFixed(0)}</td>` +
     `<td>${s.ms.toFixed(0)}</td><td>${s.fpk.toFixed(1)}</td><td>${s.fmean.toFixed(1)}</td>` +
     s.phm.slice(1, 5).map(x => `<td>${Number.isFinite(x) ? x.toFixed(1) : "–"}</td>`).join("") + `<td>${s.fsw.toFixed(2)}</td>` +
+    `<td>${s.heel ?? "–"}</td><td>${Number.isFinite(s.rom) ? s.rom.toFixed(0) : "–"}</td>` +
     `<td title="flags">${s.flags & 1 ? "⚠" : ""}${s.flags & 2 ? "" : "auto"}</td></tr>`).join("");
 }
 window.addEventListener("resize", () => { gaitDirty = true; });
@@ -2137,8 +2248,8 @@ function logPacket(dv) {
 }
 function logDone() {
   const s = ((performance.now() - rd.t0) / 1000).toFixed(1);
-  const c = [0, 0, 0, 0, 0];
-  for (let i = 16; i < logN * 16; i += 16) if (logStore[i] >= 1 && logStore[i] <= 4) c[logStore[i]]++;
+  const c = [0, 0, 0, 0, 0, 0];
+  for (let i = 16; i < logN * 16; i += 16) if (logStore[i] >= 1 && logStore[i] <= 5) c[logStore[i]]++;
   log(T("dlReadDone", rd.n, s, c));
   rd = null; $("dlProg").hidden = true; $("dlRead").textContent = T("dlReadB");
   logDirty = true; logSave(); renderLog(); renderLogStatus();
@@ -2164,7 +2275,7 @@ function parseLog() {
   let seg = 0, cur = null;
   const ok = logN > 0 && String.fromCharCode(...logStore.subarray(0, 4)) === "FEOL";
   if (!ok) return { sessions, ok };
-  const ents = [];
+  const ver = logStore[4];   // 1: firmware before v0.8.0 (no DL_T_STRIDE_X, other minute layout)
   for (let i = 1; i < logN; i++) {
     const o = i * 16, ty = dv.getUint8(o), u16 = k => dv.getUint16(o + k, true), u32 = k => dv.getUint32(o + k, true);
     if (ty === 1) {
@@ -2176,8 +2287,19 @@ function parseLog() {
     }
     if (ty === 4 && dv.getUint8(o + 1) === 3) seg++;
     let e = null;
-    if (ty === 2) e = { k: "s", t: u32(4), flags: dv.getUint8(o + 1), stride: u16(2), stance: u16(8), pk: u16(10) / 100, mean: u16(12) / 100, imp: u16(14) / 100 };
-    else if (ty === 3) e = { k: "m", t: u32(4), move: dv.getUint8(o + 1), strides: u16(2), restS: u16(8), restMax: u16(10) / 100, bat: u16(12), over: u16(14) };
+    if (ty === 2) e = { k: "s", t: u32(4), flags: dv.getUint8(o + 1), stride: u16(2), stance: u16(8), pk: u16(10) / 100, mean: u16(12) / 100, imp: u16(14) / 100,
+                        heel: null, tpk: null, msw: null, rom: null, rate: null, fsw: null };
+    else if (ty === 5) {
+      // more of the stride just before (same IC time)
+      const x = cur && cur.strides[cur.strides.length - 1], h = dv.getUint8(o + 1);
+      if (x && x.t === u32(4)) Object.assign(x, { heel: h === 255 ? null : h, tpk: u16(2), msw: u16(8) / 10, rom: u16(10) / 10,
+                                                   rate: u16(12) / 10, fsw: dv.getInt16(o + 14, true) / 100 });
+      continue;
+    }
+    else if (ty === 3) e = ver >= 2
+      ? { k: "m", t: u32(4), move: dv.getUint8(o + 1), strides: u16(2), restS: dv.getUint8(o + 8), lie: dv.getUint8(o + 9), restMax: u16(10) / 100,
+          bat: u16(12), over: dv.getUint8(o + 14), up: dv.getUint8(o + 15) }
+      : { k: "m", t: u32(4), move: dv.getUint8(o + 1), strides: u16(2), restS: u16(8), restMax: u16(10) / 100, bat: u16(12), over: u16(14), lie: null, up: null };
     else if (ty === 4) {
       e = { k: "e", t: u32(4), code: dv.getUint8(o + 1), a16: u16(2), unix: u32(8), a32: u32(12) };
       if (e.unix) off[seg] = e.unix * 1000 - e.t;
@@ -2189,7 +2311,7 @@ function parseLog() {
   // wall-clock time in ms, or null if this segment never got the time
   const ms = e => off[e.seg] !== undefined ? off[e.seg] + e.t : null;
   sessions.forEach(s => [...s.strides, ...s.minutes, ...s.events].forEach(e => e.ms = ms(e)));
-  return { sessions, ok };
+  return { sessions, ok, ver };
 }
 const pad2 = n => String(n).padStart(2, "0");
 const tsLocal = ms => { if (ms === null) return ""; const d = new Date(ms);
@@ -2201,6 +2323,51 @@ function hours(s, thr) {
   s.minutes.forEach(x => { if (x.ms === null) return; const h = get(x.ms - 30000); h.min++; h.moveS += x.move; if (x.move) h.moveMin++;
     h.restS += x.restS; if (x.bat) h.bat = x.bat; });
   return [...H.values()].sort((a, b) => a.t - b.t);
+}
+// Gait measures of a session: [label key, value] per day (local time) and in total
+const dayKey = ms => { if (ms === null) return null; const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+function gaitMeasures(s, thr) {
+  const bouts = walkBouts(s.strides, x => x.seg);
+  const calc = (st, bs, mins) => {
+    const m = strideMeasures(st), v = variability(bs, 20, 2), b10 = bs.filter(b => b.dur >= 10);
+    const spm = mins.map(x => 2 * x.strides).sort((a, b) => b - a), v2 = mins.some(x => x.lie !== null);
+    const minS = k => v2 ? sum(mins.map(x => x[k])) / 3600 : NaN;
+    return {
+      n: st.length, steps: 2 * st.length, walkMin: sum(bs.map(b => b.dur)) / 60, bouts: bs.length,
+      b10: bs.filter(b => b.dur < 10).length, b30: bs.filter(b => b.dur >= 10 && b.dur < 30).length,
+      b60: bs.filter(b => b.dur >= 30 && b.dur < 60).length, bLong: bs.filter(b => b.dur >= 60).length,
+      boutMax: bs.length ? Math.max(...bs.map(b => b.dur)) : NaN, boutMed: median(bs.map(b => b.dur)),
+      cadMed: median(b10.map(b => b.cad)), cad95: quant(b10.map(b => b.cad), 0.95),
+      peak1: spm.length ? spm[0] : NaN, peak30: spm.length >= 30 ? mean(spm.slice(0, 30)) : NaN, min100: mins.length ? spm.filter(x => x >= 100).length : NaN,
+      stance: m.stance, swing: m.swing, ratio: m.ratio, msw: m.msw, rom: m.rom,
+      cvStride: v.stride, cvStance: v.stance, cvPk: v.pk, varN: v.n ? `${v.n} (${v.bouts})` : "–",
+      imp: sum(st.map(x => x.imp)), impStride: mean(st.map(x => x.imp)), over: st.length ? 100 * st.filter(x => x.pk > thr).length / st.length : NaN,
+      pk: median(st.map(x => x.pk)), heel: m.heel, rate: m.rate,
+      logged: mins.length / 60, move: sum(mins.map(x => x.move)) / 3600, up: minS("up"), standLoad: sum(mins.map(x => x.restS)) / 3600, lie: minS("lie"),
+    };
+  };
+  const cols = [{ key: "*", v: calc(s.strides, bouts, s.minutes) }];
+  const minDay = x => x.ms === null ? null : dayKey(x.ms - 30000);    // a minute entry is written at its end
+  const days = [...new Set([...s.strides.map(x => dayKey(x.ms)), ...s.minutes.map(minDay)].filter(x => x))].sort();
+  days.forEach(d => cols.push({ key: d, v: calc(s.strides.filter(x => dayKey(x.ms) === d),
+    bouts.filter(b => dayKey(b.ms) === d), s.minutes.filter(x => minDay(x) === d)) }));
+  return { cols, bouts };
+}
+// rows of the table: group headings (g...) and measures with decimals
+const GM_ROWS = [["gAct"], ["n", 0], ["steps", 0], ["walkMin", 1], ["bouts", 0], ["b10", 0], ["b30", 0], ["b60", 0], ["bLong", 0], ["boutMax", 0], ["boutMed", 1],
+  ["gCad"], ["cadMed", 0], ["cad95", 0], ["peak1", 0], ["peak30", 1], ["min100", 0],
+  ["gRhy"], ["stance", 1], ["swing", 2], ["ratio", 2], ["msw", 0], ["rom", 1],
+  ["gVar"], ["cvStride", 1], ["cvStance", 1], ["cvPk", 1], ["varN"],
+  ["gLoad"], ["imp", 0], ["impStride", 2], ["over", 1], ["pk", 1], ["heel", 0], ["rate", 0],
+  ["gPos"], ["logged", 1], ["move", 2], ["up", 2], ["standLoad", 2], ["lie", 2]];
+const gmVal = (v, d) => typeof v === "string" ? v : Number.isFinite(v) ? v.toFixed(d) : "–";
+function renderGm(s, thr) {
+  if (!s) { $("gmHead").innerHTML = $("gmBody").innerHTML = ""; return; }
+  const { cols } = gaitMeasures(s, thr), L = TEXT[lang].gm;
+  $("gmHead").innerHTML = `<tr><th>${T("gmPar")}</th>` + cols.map(c => `<th>${c.key === "*" ? T("gmAll") : c.key}</th>`).join("") + "</tr>";
+  $("gmBody").innerHTML = GM_ROWS.map(([k, d]) => k[0] === "g" && k.length > 1 && k[1] === k[1].toUpperCase()
+    ? `<tr><td class="gmg" colspan="${cols.length + 1}">${L[k]}</td></tr>`
+    : `<tr><td>${L[k]}</td>` + cols.map(c => `<td>${gmVal(c.v[k], d)}</td>`).join("") + "</tr>").join("");
 }
 const sideTxt = v => T(v === 1 ? "dlLeft" : v === 2 ? "dlRight" : "dlSideNone");
 function selSession() {
@@ -2263,11 +2430,11 @@ function renderLogStatus() {
   $("dlMem").textContent = conn ? `${(100 * st.count / st.cap).toFixed(1)} %` : "–";
   $("dlMemN").textContent = conn ? T("dlEntries", st.count, st.cap) : "";
   // remaining days: entries per day of the running session, otherwise a typical day
-  // (5000 strides, 1440 minutes, some events)
-  let perDay = 6600;
+  // (5000 strides with two entries each since firmware v0.8.0, 1440 minutes, some events)
+  let perDay = 11600;
   if (conn && f & DL_ST.RUN && logParsed) {
-    const s = logParsed.sessions[logParsed.sessions.length - 1];
-    if (s && s.minutes.length > 60) perDay = (s.strides.length + s.minutes.length + s.events.length) / s.minutes.length * 1440;
+    const s = logParsed.sessions[logParsed.sessions.length - 1], k = logParsed.ver >= 2 ? 2 : 1;
+    if (s && s.minutes.length > 60) perDay = (k * s.strides.length + s.minutes.length + s.events.length) / s.minutes.length * 1440;
   }
   $("dlDays").textContent = conn ? ((st.cap - st.count) / perDay).toFixed(1) : "–";
   $("dlSessT").textContent = conn && f & DL_ST.RUN ? `${st.pseudo || "–"} · ${sideTxt(st.side)} · ${st.thr.toFixed(2)} kg` : "–";
@@ -2307,6 +2474,7 @@ function renderLog() {
   $("dlSumRest").textContent = s ? (s.minutes.reduce((a, m) => a + m.restS, 0) / 60).toFixed(0) : "–";
   $("dlSumInfo").textContent = s ? T("dlSessInfo", s.pseudo || "–", sideTxt(s.side), s.thr.toFixed(2),
     s.unix ? tsLocal(s.unix * 1000) : "?", st.filter(x => x.ms === null).length) : "";
+  renderGm(s, thr);
   const H = s ? hours(s, thr) : [];
   drawHours(H);
   $("dlHt").innerHTML = H.map(h => `<tr><td>${tsLocal(h.t).slice(0, 13)}</td><td>${h.n}</td><td>${h.over}</td>` +
@@ -2391,15 +2559,28 @@ function sessCsv(kind) {
     const pre = [si + 1, s.pseudo, s.side];
     const th = Number.isFinite(thr) ? thr : s.thr;
     if (kind === "strides") {
-      head = "session,pseudonym,side,time_local,unix_ms,segment,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,flags";
-      s.strides.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.stride, x.stance, x.pk, x.mean, x.imp, x.flags]));
+      head = "session,pseudonym,side,time_local,unix_ms,segment,t_ic_ms,stride_ms,stance_ms,f_peak_kg,f_mean_kg,f_imp_kgs,flags," +
+        "swing_ms,heel_contact_pct,t_fpeak_ms,swing_peak_dps,rom_deg,f_rate_kgps,f_swing_kg";
+      s.strides.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.stride, x.stance, x.pk, x.mean, x.imp, x.flags,
+        x.stride - x.stance, x.heel ?? "", x.tpk ?? "", x.msw ?? "", x.rom ?? "", x.rate ?? "", x.fsw ?? ""]));
     } else if (kind === "minutes") {
-      head = "session,pseudonym,side,end_local,unix_ms_end,segment,t_end_ms,strides,strides_over_device_thr,move_s,rest_load_s,rest_max_kg,bat_mv";
-      s.minutes.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.strides, x.over, x.move, x.restS, x.restMax, x.bat]));
+      head = "session,pseudonym,side,end_local,unix_ms_end,segment,t_end_ms,strides,strides_over_device_thr,move_s,rest_load_s,rest_max_kg,bat_mv,upright_unloaded_s,lying_s";
+      s.minutes.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, x.strides, x.over, x.move, x.restS, x.restMax, x.bat, x.up ?? "", x.lie ?? ""]));
     } else if (kind === "hours") {
       head = "session,pseudonym,side,hour_local,threshold_kg,strides,strides_over,pct_over,f_peak_mean_kg,f_peak_max_kg,minutes_logged,minutes_moving,move_s,rest_load_s,bat_mv";
       hours(s, th).forEach(h => rows.push([...pre, tsLocal(h.t).slice(0, 13), th, h.n, h.over, h.n ? (100 * h.over / h.n).toFixed(1) : "",
         h.n ? (h.pkSum / h.n).toFixed(2) : "", h.n ? h.pkMax : "", h.min, h.moveMin, h.moveS, h.restS, h.bat || ""]));
+    } else if (kind === "bouts") {
+      head = "session,pseudonym,side,start_local,unix_ms,segment,t_ic_ms,duration_s,strides,cadence_spm,stance_pct,f_peak_kg_median,heel_contact_pct_median,cv_stride_pct";
+      gaitMeasures(s, th).bouts.forEach(b => { const a = b.strides, v = variability([b], 3, 0);
+        rows.push([...pre, tsLocal(b.ms), b.ms ?? "", a[0].seg, a[0].t, b.dur.toFixed(2), b.n, b.cad.toFixed(1),
+          mean(a.map(x => 100 * x.stance / x.stride)).toFixed(1), median(a.map(x => x.pk)).toFixed(2),
+          Number.isFinite(median(a.map(x => x.heel))) ? median(a.map(x => x.heel)).toFixed(0) : "", Number.isFinite(v.stride) ? v.stride.toFixed(2) : ""]); });
+    } else if (kind === "days") {
+      // one row per session and day (plus "total"), one column per measure
+      head = "session,pseudonym,side,day,threshold_kg," + GM_ROWS.filter(([k, d]) => d !== undefined || k === "varN").map(([k]) => k).join(",");
+      gaitMeasures(s, th).cols.forEach(c => rows.push([...pre, c.key === "*" ? "total" : c.key, th,
+        ...GM_ROWS.filter(([k, d]) => d !== undefined || k === "varN").map(([k, d]) => { const v = gmVal(c.v[k], d ?? 0); return v === "–" ? "" : csvTxt(v); })]));
     } else {
       head = "session,pseudonym,side,time_local,unix_ms,segment,t_ms,event,arg16,arg32";
       s.events.forEach(x => rows.push([...pre, tsLocal(x.ms), x.ms ?? "", x.seg, x.t, EV_NAMES[x.code] || x.code, x.a16, x.a32]));
@@ -2408,7 +2589,7 @@ function sessCsv(kind) {
   if (!head) return;
   log(T("logSaved", rows.length, download(head + "\n" + rows.map(r => r.join(",")).join("\n") + "\n", `feo_dauermessung_${kind}_${fileTs()}.csv`)));
 }
-["strides", "minutes", "hours", "events"].forEach(k => $("dlCsv-" + k).onclick = () => sessCsv(k));
+["strides", "minutes", "hours", "events", "days", "bouts"].forEach(k => $("dlCsv-" + k).onclick = () => sessCsv(k));
 try {
   const f = JSON.parse(localStorage.getItem("feoLogForm"));
   if (f) { $("dlPseudo").value = f.ps || ""; $("dlThr").value = f.thr ?? 2; $("dlSide").value = f.side || "2"; }
