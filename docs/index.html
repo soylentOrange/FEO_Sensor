@@ -386,6 +386,15 @@
     </div>
     <progress id="fwProg" max="1" value="0" hidden></progress>
   </div>
+  <div class="card fw t-fw">
+    <h2><span data-i18n="ledTitle"></span></h2>
+    <div class="row">
+      <label><span data-i18n="ledDim"></span> <select id="ledDim" disabled></select></label>
+      <label><span data-i18n="ledBright"></span> <select id="ledBright" disabled></select></label>
+      <label><span data-i18n="ledFlash"></span> <select id="ledFlash" disabled></select></label>
+    </div>
+    <div class="hint" data-i18n="ledHint"></div>
+  </div>
   <div class="card fw pk t-fw">
     <h2><span data-i18n="pkTitle"></span> <span class="hint" id="pkState">–</span></h2>
     <div class="row">
@@ -500,7 +509,7 @@ const TEXT = {
     dlUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen.`, dlNoDev: "nicht verbunden",
     dlHint: "Das Gerät speichert jeden Doppelschritt (Zeit, Dauer, Standphase, Fersenspitze, Mittel, Kraftstoß), jede Minute (Doppelschritte, Bewegung, Fersenlast im Stehen, Akku) und Ereignisse. Die Uhrzeit stellt die App beim Verbinden. Im Ruhemodus misst das Gerät die Fersenlast alle 5 s. Ein Firmware-Update löscht den Speicher, also vorher auslesen.",
     dlReadT: "Auslesen und Export", dlReadB: "Neue Daten auslesen", dlReadAllB: "Alles neu auslesen", dlEraseB: "Speicher im Gerät löschen",
-    dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen`,
+    dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen (im Speicher: ${c[2]} Doppelschritte, ${c[3]} Minutenwerte, ${c[4]} Ereignisse, ${c[1]} Messungen)`,
     dlChanged: "# Speicher im Gerät wurde inzwischen gelöscht, lese alles neu", dlHave: n => `${n} Einträge im Browser`,
     dlCsvL: "CSV:", dlCsvS: "Schritte", dlCsvM: "Minuten", dlCsvH: "Stunden", dlCsvE: "Ereignisse",
     dlBinB: "Rohdaten sichern (.bin)", dlOpenB: "Rohdaten öffnen …",
@@ -517,6 +526,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
     dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
     dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
+    ledTitle: "LED am Sensor", ledDim: "bei Bewegung", ledBright: "Fersenauftritt", ledFlash: "Blitzdauer", ledOff: "aus",
+    ledHint: "Bei Bewegung leuchtet die LED gedimmt, bei jedem Fersenauftritt blitzt sie hell. Helligkeit in % (PWM), beides einzeln abschaltbar. Wird im Sensor gespeichert. Hell blitzen kostet beim Gehen rund 0,5 mA, gedimmt deutlich weniger.",
     pkTitle: "Kopplungscode", pkSetB: "Code setzen", pkClearB: "Code entfernen",
     pkOff: "aus: jeder kann sich verbinden", pkOn: "aktiv", pkOnPaired: "aktiv, diese Verbindung ist gekoppelt",
     pkHint: "Mit Code verbindet sich nur, wer ihn kennt: beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt. Gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.",
@@ -624,7 +635,7 @@ const TEXT = {
     dlUnread: n => `${n} entries in the device have not been read out yet.`, dlNoDev: "not connected",
     dlHint: "The device stores every stride (time, duration, stance, heel peak, mean, impulse), every minute (strides, movement, heel load while standing, battery) and events. The app sets the clock when connecting. In rest mode the device samples the heel load every 5 s. A firmware update erases the memory, so read it out first.",
     dlReadT: "Readout and export", dlReadB: "Read new data", dlReadAllB: "Read everything again", dlEraseB: "Erase device memory",
-    dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s) => `# Long-term: ${n} entries read in ${s} s`,
+    dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Long-term: ${n} entries read in ${s} s (in memory: ${c[2]} strides, ${c[3]} minute records, ${c[4]} events, ${c[1]} measurements)`,
     dlChanged: "# Device memory was erased in the meantime, reading everything", dlHave: n => `${n} entries in the browser`,
     dlCsvL: "CSV:", dlCsvS: "Strides", dlCsvM: "Minutes", dlCsvH: "Hours", dlCsvE: "Events",
     dlBinB: "Save raw data (.bin)", dlOpenB: "Open raw data …",
@@ -641,6 +652,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
     dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
     dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
+    ledTitle: "Sensor LED", ledDim: "while moving", ledBright: "initial contact", ledFlash: "flash length", ledOff: "off",
+    ledHint: "While moving the LED is dimly on; at every initial contact it flashes brightly. Brightness in % (PWM), each can be switched off. Stored in the sensor. Bright flashes cost about 0.5 mA while walking, the dim light much less.",
     pkTitle: "Pairing code", pkSetB: "Set code", pkClearB: "Remove code",
     pkOff: "off: anyone can connect", pkOn: "active", pkOnPaired: "active, this link is paired",
     pkHint: "With a code, only those who know it can connect: on the first connect the system asks once for the code (Android dialog, a notification on the Mac); after that the device stays paired. This also covers the firmware update. Code forgotten: hold the button on the XIAO for 5 s while switching on (LED blinks); this clears code and pairings. Then remove the board in the Bluetooth settings of the phone/computer.",
@@ -2011,6 +2024,11 @@ const u32b = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]
 async function ctrlCmd(bytes) {
   if (!ctrlChr) throw new Error(T("dlNoDev"));
   await gattOp(() => ctrlChr.writeValueWithResponse(new Uint8Array(bytes)));
+  // read the status back shortly after a command: older firmware sends it only
+  // every minute in rest mode, so the shown state would lag behind
+  if (bytes[0] !== 1) [400, 2500].forEach(ms => setTimeout(() => {
+    if (ctrlChr) gattOp(() => ctrlChr.readValue()).then(onStatus).catch(() => {});
+  }, ms));
 }
 function parseStatus(dv) {
   if (dv.byteLength < 44) return null;
@@ -2019,7 +2037,8 @@ function parseStatus(dv) {
   for (let i = 0; i < 8; i++) { const c = dv.getUint8(20 + i); if (c) ps += String.fromCharCode(c); }
   return { flags: dv.getUint8(1), outputs: u16(2), count: u32(4), cap: u32(8), unix: u32(12), thr: u16(16) / 100,
            side: dv.getUint8(18), erasePct: dv.getUint8(19), pseudo: ps, sessIdx: u32(28), uptime: u32(32),
-           strides: u32(36), activity: dv.getUint8(40), still: u16(42), sec: dv.getUint8(41), at: Date.now() };
+           strides: u32(36), activity: dv.getUint8(40), still: u16(42), sec: dv.getUint8(41),
+           led: dv.byteLength >= 48 ? [dv.getUint8(44), dv.getUint8(45), u16(46)] : null, at: Date.now() };
 }
 function onStatus(dv) {
   const s = parseStatus(dv);
@@ -2118,7 +2137,9 @@ function logPacket(dv) {
 }
 function logDone() {
   const s = ((performance.now() - rd.t0) / 1000).toFixed(1);
-  log(T("dlReadDone", rd.n, s));
+  const c = [0, 0, 0, 0, 0];
+  for (let i = 16; i < logN * 16; i += 16) if (logStore[i] >= 1 && logStore[i] <= 4) c[logStore[i]]++;
+  log(T("dlReadDone", rd.n, s, c));
   rd = null; $("dlProg").hidden = true; $("dlRead").textContent = T("dlReadB");
   logDirty = true; logSave(); renderLog(); renderLogStatus();
 }
@@ -2204,9 +2225,22 @@ async function pkWaitAccess(svc) {
 }
 function renderPk() {
   const st = devSt, conn = !!(ctrlChr && st);
+  const opts = { ledDim: [0, 1, 2, 3, 5, 10, 20, 40], ledBright: [0, 10, 25, 50, 100], ledFlash: [100, 200, 300, 500, 1000] };
+  Object.entries(opts).forEach(([id, vals], k) => {
+    const el = $(id), cur = conn && st.led ? st.led[k] : null, list = cur === null || vals.includes(cur) ? vals : [...vals, cur].sort((a, b) => a - b);
+    const html = list.map(v => `<option value="${v}">${v === 0 ? T("ledOff") : v + (id === "ledFlash" ? " ms" : " %")}</option>`).join("");
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+    el.disabled = !conn || !st.led;
+    if (cur !== null && document.activeElement !== el) el.value = String(cur);
+  });
   $("pkState").textContent = !conn ? "–" : st.sec & 1 ? T(st.sec & 2 ? "pkOnPaired" : "pkOn") : T("pkOff");
   $("pkSet").disabled = !conn; $("pkClear").disabled = !conn || !(st.sec & 1);
 }
+["ledDim", "ledBright", "ledFlash"].forEach(id => $(id).onchange = async () => {
+  const fl = Number($("ledFlash").value);
+  try { await ctrlCmd([9, Number($("ledDim").value), Number($("ledBright").value), fl & 255, fl >> 8]); }
+  catch (e) { log(T("logBleErr", e.message)); }
+});
 $("pkSet").onclick = async () => {
   const c = $("pkCode").value.trim();
   if (!/^\d{6}$/.test(c)) { $("pkState").textContent = T("pkBad"); return; }

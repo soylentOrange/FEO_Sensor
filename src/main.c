@@ -75,8 +75,9 @@
  * keine seriellen Daten; der nRF schläft bis zur nächsten Bewegung (Akku alle 60 s).
  * Bluetooth wirbt nach 30 s nur noch langsam (ca. 1 s). Die Rohdaten (FEO_DATA_UUID)
  * schickt die Firmware nur, wenn die App sie abonniert.
- * LED: aus im Ruhemodus; bei erkannter Aktivität kurzes schwaches Blitzen mit 2 Hz,
- * bei jedem Fersenauftritt (IC) ein längerer, hellerer Blitz.
+ * LED: off at rest; dimly on while movement is detected, a bright flash at every
+ * initial contact (IC). Dim and bright level (% PWM duty) and flash length are set
+ * from the app (control command 9, stored in flash).
  *
  * Firmware-Update (nur Build mit MCUboot, zephyr/ota.conf): MCUmgr/SMP-Service
  * über BLE. Ein neues Image läuft nach dem Neustart zunächst zur Probe; die
@@ -124,7 +125,6 @@
 #define STEP_LOG         1024  /* Schritt-Datensätze im RAM */
 #define STEP_LEN         (30 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
 #define ADV_FAST_S       30    /* nach Start/Trennen so lange schnell werben */
-#define LED_FLASH_MS     15
 
 #define SAMPLE_PERIOD_MS (1000 / SAMPLE_RATE_HZ)
 #define G_TO_MS2         9.80665
@@ -178,13 +178,22 @@ static const struct bt_uuid_128 feo_log_uuid = BT_UUID_INIT_128(FEO_LOG_UUID_VAL
 #define OUT_SER_STEP     BIT(3)   /* serial #S lines */
 #define OUT_ALL          0x000f
 #define CTRL_OUTPUTS     7        /* control command: uint16 output mask */
+#define CTRL_LED         9        /* control command: uint8 dim %, uint8 bright %, uint16 flash ms */
 #define CTRL_PASSKEY     8        /* control command: uint32 passkey 0..999999, 0xFFFFFFFF = none */
 #define PK_NONE          0xFFFFFFFFu
 #define PK_RESET_MS      5000     /* hold the user button this long at power-up: clear passkey + bonds */
 #define PK_PAIR_S        60       /* passkey set: disconnect if the link is not paired by then */
-#define CTRL_STATUS_LEN  (DL_STATUS_LEN + 8)
+#define CTRL_STATUS_LEN  (DL_STATUS_LEN + 12)
 static atomic_t outputs = ATOMIC_INIT(OUT_ALL);
 static atomic_t passkey = ATOMIC_INIT((atomic_val_t)PK_NONE);
+/* LED (stored in flash): dimly on while moving, a bright flash at every initial
+ * contact. Brightness in % duty cycle of a software PWM (the LED pin P2.0 has
+ * no hardware PWM), 0 = off. */
+#define LED_PWM_US       4000     /* PWM period (250 Hz) */
+#define LED_FLASH_MAX_MS 2000
+static atomic_t led_dim = ATOMIC_INIT(3);        /* % while moving */
+static atomic_t led_bright = ATOMIC_INIT(100);   /* % at initial contact */
+static atomic_t led_flash_ms = ATOMIC_INIT(300);
 static atomic_t stride_total;     /* strides since power-up */
 static atomic_t activity;         /* 0 rest mode, 1 still, 2 moving */
 static atomic_t still_secs;
@@ -284,6 +293,17 @@ static int cal_settings_set(const char *name, size_t len, settings_read_cb read_
 
 	if (!strcmp(name, "frame")) {
 		return frame_settings_set(len, read_cb, cb_arg);
+	}
+	if (!strcmp(name, "led")) {
+		uint8_t l[4];
+
+		if (len == 4 && read_cb(cb_arg, l, 4) == 4 && l[0] <= 100 && l[1] <= 100 &&
+		    sys_get_le16(l + 2) <= LED_FLASH_MAX_MS) {
+			atomic_set(&led_dim, l[0]);
+			atomic_set(&led_bright, l[1]);
+			atomic_set(&led_flash_ms, sys_get_le16(l + 2));
+		}
+		return 0;
 	}
 	if (!strcmp(name, "pk")) {
 		uint8_t k[4];
@@ -546,6 +566,9 @@ static void ctrl_status(uint8_t b[CTRL_STATUS_LEN])
 	b[DL_STATUS_LEN + 5] = (pk_set() ? 1 : 0) |
 		(cur_conn && bt_conn_get_security(cur_conn) >= BT_SECURITY_L3 ? 2 : 0);
 	sys_put_le16((uint16_t)MIN(atomic_get(&still_secs), UINT16_MAX), b + DL_STATUS_LEN + 6);
+	b[DL_STATUS_LEN + 8] = (uint8_t)atomic_get(&led_dim);
+	b[DL_STATUS_LEN + 9] = (uint8_t)atomic_get(&led_bright);
+	sys_put_le16((uint16_t)atomic_get(&led_flash_ms), b + DL_STATUS_LEN + 10);
 }
 
 static ssize_t ctrl_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -574,6 +597,14 @@ static ssize_t ctrl_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		sys_put_le16(sys_get_le16(b + 1) & OUT_ALL, m);
 		atomic_set(&outputs, sys_get_le16(m));
 		settings_save_one("feo/outputs", m, 2);
+	} else if (b[0] == CTRL_LED) {
+		if (len != 5 || b[1] > 100 || b[2] > 100 || sys_get_le16(b + 3) > LED_FLASH_MAX_MS) {
+			return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+		}
+		atomic_set(&led_dim, b[1]);
+		atomic_set(&led_bright, b[2]);
+		atomic_set(&led_flash_ms, sys_get_le16(b + 3));
+		settings_save_one("feo/led", b + 1, 4);
 	} else if (b[0] == CTRL_PASSKEY) {
 		if (len != 5) {
 			return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
@@ -911,9 +942,26 @@ static void log_send_pending(void)
 /* main-loop housekeeping for the log; returns true if it needs to run again soon */
 static bool log_service(void)
 {
+	static uint8_t last_flags, last_pct;
+	static uint32_t last_count;
+	static int64_t last_push;
 	bool busy = dl_poll();
+	uint8_t st[DL_STATUS_LEN];
 
 	log_send_pending();
+	/* tell the app right away when the log state changes (start, stop, erase
+	 * progress), also in rest mode where the status is otherwise sent rarely */
+	dl_status(st);
+	uint32_t count = sys_get_le32(st + 4);
+	int64_t now = k_uptime_get();
+
+	if (st[1] != last_flags || ((st[19] != last_pct || count != last_count) && now - last_push >= 250)) {
+		last_flags = st[1];
+		last_pct = st[19];
+		last_count = count;
+		last_push = now;
+		ble_push_status();
+	}
 	return busy;
 }
 
@@ -1191,11 +1239,42 @@ static void rest_init(void)
 	}
 }
 
+/* software PWM: one timer toggles the pin, only while 0 < duty < 100 % */
+static uint32_t led_on_us, led_off_us;
+static bool led_phase;
+
+static void led_pwm_fn(struct k_timer *t)
+{
+	led_phase = !led_phase;
+	gpio_pin_set_dt(&led, led_phase);
+	k_timer_start(t, K_USEC(led_phase ? led_on_us : led_off_us), K_NO_WAIT);
+}
+static K_TIMER_DEFINE(led_pwm, led_pwm_fn, NULL);
+
+static void led_pct(uint8_t pct)
+{
+	static int8_t cur = -1;
+
+	if (!gpio_is_ready_dt(&led) || pct == cur) {
+		return;
+	}
+	cur = pct;
+	k_timer_stop(&led_pwm);
+	if (pct == 0 || pct >= 100) {
+		led_phase = pct != 0;
+		gpio_pin_set_dt(&led, led_phase);
+		return;
+	}
+	led_on_us = LED_PWM_US * pct / 100;
+	led_off_us = LED_PWM_US - led_on_us;
+	led_phase = true;
+	gpio_pin_set_dt(&led, 1);
+	k_timer_start(&led_pwm, K_USEC(led_on_us), K_NO_WAIT);
+}
+
 static void led_set(bool on)
 {
-	if (gpio_is_ready_dt(&led)) {
-		gpio_pin_set_dt(&led, on);
-	}
+	led_pct(on ? 100 : 0);
 }
 
 static void bat_once(void)
@@ -1465,8 +1544,11 @@ int main(void)
 				    (atomic_get(&outputs) & OUT_BLE_STEP)) {
 					step_notify(st.seq);
 				}
-				led_set(true);              /* Fersenauftritt: langer, heller Blitz */
-				led_off = k_uptime_get() + 60;
+				if (atomic_get(&led_bright) && atomic_get(&led_flash_ms)) {
+					/* initial contact: bright flash */
+					led_pct((uint8_t)atomic_get(&led_bright));
+					led_off = k_uptime_get() + atomic_get(&led_flash_ms);
+				}
 			}
 		} else {
 			printk("# Lesefehler\n");
@@ -1496,15 +1578,15 @@ int main(void)
 			k_spin_unlock(&frame_lock, key);
 		}
 
-		/* LED: bei Bewegung 2 Hz kurz (schwach) blitzen */
+		/* LED: dim while moving, bright flash after initial contact */
 		int64_t now = k_uptime_get();
 
 		if (led_off && now >= led_off) {
-			led_set(false);
 			led_off = 0;
-		} else if (!led_off && moving && n % (SAMPLE_RATE_HZ / 2) == 0) {
-			led_set(true);
-			led_off = now + 2;
+		}
+		if (!led_off) {
+			/* dimly on while moving, otherwise off */
+			led_pct(moving ? (uint8_t)atomic_get(&led_dim) : 0);
 		}
 
 		if (rest_ok && still_s >= REST_AFTER_S && !raw_requested()) {
