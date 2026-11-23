@@ -389,7 +389,9 @@
   <div class="card fw t-fw">
     <h2><span data-i18n="ledTitle"></span></h2>
     <div class="row">
-      <select id="ledLvl" disabled></select>
+      <label><span data-i18n="ledDim"></span> <select id="ledDim" disabled></select></label>
+      <label><span data-i18n="ledBright"></span> <select id="ledBright" disabled></select></label>
+      <label><span data-i18n="ledFlash"></span> <select id="ledFlash" disabled></select></label>
     </div>
     <div class="hint" data-i18n="ledHint"></div>
   </div>
@@ -524,8 +526,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen und gehen verloren. Trotzdem löschen?`,
     dlStarted: p => `# Dauermessung gestartet (${p})`, dlStoppedLog: "# Dauermessung beendet", dlMarked: n => `# Markierung ${n} gesetzt`,
     dlErased: "# Speicher im Gerät wird gelöscht", fwLogWarn: n => `Achtung: Das Update überschreibt die Dauermessung im Gerät. ${n} Einträge sind noch nicht ausgelesen und gehen verloren.`,
-    ledTitle: "LED am Sensor", ledNames: ["aus", "1 (kurz, wie bisher)", "2", "3 (Standard)", "4 (am hellsten)"],
-    ledHint: "Die LED ist entweder ganz an oder aus; heller wirkt sie durch längere Blitze (bei Bewegung 2 Hz, bei jedem Fersenauftritt ein langer Blitz). Stufe 3 kostet beim Gehen etwa 1 mA, „aus“ spart das ganz. Wird im Sensor gespeichert.",
+    ledTitle: "LED am Sensor", ledDim: "bei Bewegung", ledBright: "Fersenauftritt", ledFlash: "Blitzdauer", ledOff: "aus",
+    ledHint: "Bei Bewegung leuchtet die LED gedimmt, bei jedem Fersenauftritt blitzt sie hell. Helligkeit in % (PWM), beides einzeln abschaltbar. Wird im Sensor gespeichert. Hell blitzen kostet beim Gehen rund 0,5 mA, gedimmt deutlich weniger.",
     pkTitle: "Kopplungscode", pkSetB: "Code setzen", pkClearB: "Code entfernen",
     pkOff: "aus: jeder kann sich verbinden", pkOn: "aktiv", pkOnPaired: "aktiv, diese Verbindung ist gekoppelt",
     pkHint: "Mit Code verbindet sich nur, wer ihn kennt: beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt. Gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.",
@@ -650,8 +652,8 @@ const TEXT = {
     dlEraseUnread: n => `${n} entries in the device have not been read out and will be lost. Erase anyway?`,
     dlStarted: p => `# Long-term measurement started (${p})`, dlStoppedLog: "# Long-term measurement stopped", dlMarked: n => `# Marker ${n} set`,
     dlErased: "# Erasing device memory", fwLogWarn: n => `Warning: the update overwrites the long-term log in the device. ${n} entries have not been read out and will be lost.`,
-    ledTitle: "Sensor LED", ledNames: ["off", "1 (short, as before)", "2", "3 (default)", "4 (brightest)"],
-    ledHint: "The LED is either fully on or off; longer flashes make it look brighter (2 Hz while moving, a long flash at every initial contact). Level 3 costs about 1 mA while walking; “off” saves that. Stored in the sensor.",
+    ledTitle: "Sensor LED", ledDim: "while moving", ledBright: "initial contact", ledFlash: "flash length", ledOff: "off",
+    ledHint: "While moving the LED is dimly on; at every initial contact it flashes brightly. Brightness in % (PWM), each can be switched off. Stored in the sensor. Bright flashes cost about 0.5 mA while walking, the dim light much less.",
     pkTitle: "Pairing code", pkSetB: "Set code", pkClearB: "Remove code",
     pkOff: "off: anyone can connect", pkOn: "active", pkOnPaired: "active, this link is paired",
     pkHint: "With a code, only those who know it can connect: on the first connect the system asks once for the code (Android dialog, a notification on the Mac); after that the device stays paired. This also covers the firmware update. Code forgotten: hold the button on the XIAO for 5 s while switching on (LED blinks); this clears code and pairings. Then remove the board in the Bluetooth settings of the phone/computer.",
@@ -2030,7 +2032,8 @@ function parseStatus(dv) {
   for (let i = 0; i < 8; i++) { const c = dv.getUint8(20 + i); if (c) ps += String.fromCharCode(c); }
   return { flags: dv.getUint8(1), outputs: u16(2), count: u32(4), cap: u32(8), unix: u32(12), thr: u16(16) / 100,
            side: dv.getUint8(18), erasePct: dv.getUint8(19), pseudo: ps, sessIdx: u32(28), uptime: u32(32),
-           strides: u32(36), activity: dv.getUint8(40), still: u16(42), sec: dv.getUint8(41), at: Date.now() };
+           strides: u32(36), activity: dv.getUint8(40), still: u16(42), sec: dv.getUint8(41),
+           led: dv.byteLength >= 48 ? [dv.getUint8(44), dv.getUint8(45), u16(46)] : null, at: Date.now() };
 }
 function onStatus(dv) {
   const s = parseStatus(dv);
@@ -2215,17 +2218,22 @@ async function pkWaitAccess(svc) {
 }
 function renderPk() {
   const st = devSt, conn = !!(ctrlChr && st);
-  const ll = $("ledLvl"), names = T("ledNames");
-  if (ll.options.length !== names.length || ll.options[0].text !== names[0])
-    ll.innerHTML = names.map((n, i) => `<option value="${i}">${n}</option>`).join("");
-  ll.disabled = !conn;
-  if (conn && document.activeElement !== ll) ll.value = String((st.sec >> 4) & 7);
+  const opts = { ledDim: [0, 1, 2, 3, 5, 10, 20, 40], ledBright: [0, 10, 25, 50, 100], ledFlash: [100, 200, 300, 500, 1000] };
+  Object.entries(opts).forEach(([id, vals], k) => {
+    const el = $(id), cur = conn && st.led ? st.led[k] : null, list = cur === null || vals.includes(cur) ? vals : [...vals, cur].sort((a, b) => a - b);
+    const html = list.map(v => `<option value="${v}">${v === 0 ? T("ledOff") : v + (id === "ledFlash" ? " ms" : " %")}</option>`).join("");
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+    el.disabled = !conn || !st.led;
+    if (cur !== null && document.activeElement !== el) el.value = String(cur);
+  });
   $("pkState").textContent = !conn ? "–" : st.sec & 1 ? T(st.sec & 2 ? "pkOnPaired" : "pkOn") : T("pkOff");
   $("pkSet").disabled = !conn; $("pkClear").disabled = !conn || !(st.sec & 1);
 }
-$("ledLvl").onchange = async () => {
-  try { await ctrlCmd([9, Number($("ledLvl").value)]); } catch (e) { log(T("logBleErr", e.message)); }
-};
+["ledDim", "ledBright", "ledFlash"].forEach(id => $(id).onchange = async () => {
+  const fl = Number($("ledFlash").value);
+  try { await ctrlCmd([9, Number($("ledDim").value), Number($("ledBright").value), fl & 255, fl >> 8]); }
+  catch (e) { log(T("logBleErr", e.message)); }
+});
 $("pkSet").onclick = async () => {
   const c = $("pkCode").value.trim();
   if (!/^\d{6}$/.test(c)) { $("pkState").textContent = T("pkBad"); return; }
