@@ -265,8 +265,8 @@
       <div class="tile"><span data-i18n="gCv"></span><b id="gtCv">–</b></div>
     </div>
     <div class="row">
-      <label><span data-i18n="gCond"></span> <input id="gCond" list="gCondList" size="14" autocomplete="off"></label>
-      <datalist id="gCondList"></datalist>
+      <label><span data-i18n="gCond"></span> <select id="gCondPick" style="min-width:15em"></select></label>
+      <input id="gCond" size="20" autocomplete="off" hidden>
       <label><span data-i18n="gCondSel"></span> <select id="gCondSel"></select></label>
     </div>
     <div class="row">
@@ -506,8 +506,8 @@ const TEXT = {
     gAvg: "Mittel über die letzten", gAll: "alle", gLoad: "Gespeicherte vom Gerät laden", gCsv: "CSV herunterladen", gClear: "Liste leeren",
     gCond: "Bedingung", gCondSel: "Auswertung", gCondAll: "alle Bedingungen", gCondNone: "(ohne)",
     gCondSugg: ["1 Plattform Gehen", "2 Plattform Stehen", "2 Aufstehen", "3 Ebener Boden", "4 Laufband", "5 Treppe auf", "5 Treppe ab"],
-    gCondSet: c => `# Bedingung: ${c || "(ohne)"}`,
-    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte. Bedingung: vor jedem Test wählen oder eintippen; jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.",
+    gCondSet: c => `# Bedingung: ${c || "(ohne)"}`, gCondOwn: "eigene …", gCondOwnPh: "Bedingung eingeben, Enter",
+    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte. Bedingung: vor jedem Test aus der Liste wählen („eigene …“ für eine andere); jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.",
     gPhase: "Kraft je Gangphase (Rancho Los Amigos)",
     gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen. Bezug ist immer das Sensorbein (0 % = sein Fersenauftritt, TO = seine Zehenablösung). Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–).",
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
@@ -568,7 +568,8 @@ const TEXT = {
     pkClearAsk: "Kopplungscode entfernen? Danach kann sich jeder in der Nähe verbinden.",
     pkDone: "# Kopplungscode gespeichert", pkCleared: "# Kopplungscode entfernt",
     pkWait: "Kopplung: Code im Systemdialog eingeben …", pkFail: "Nicht gekoppelt (Code falsch oder Dialog abgebrochen). Ggf. das Board in den Bluetooth-Einstellungen entfernen und neu verbinden.",
-    fwRestart: "Board wird vor dem Update neu gestartet …", fwNoReconnect: "Board nach dem Neustart nicht wieder verbunden, bitte neu verbinden und das Update erneut starten",
+    fwRestart: "Board wird vor dem Update neu gestartet …", fwNoReconnect: "Board nicht wieder verbunden, bitte neu verbinden und das Update erneut starten (es geht dort weiter, wo es aufgehört hat)",
+    fwResume: p => `Update hängt bei ${p} %, verbinde neu und setze fort …`,
     fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „Firmware-Update“ die neueste Version installieren (ab v0.4.0).",
     outs: "Übertragungen:", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     outsHint: "Akku und Aktivität laufen immer.",
@@ -648,8 +649,8 @@ const TEXT = {
     gAvg: "Mean over the last", gAll: "all", gLoad: "Load stored from device", gCsv: "Download CSV", gClear: "Clear list",
     gCond: "Condition", gCondSel: "Show", gCondAll: "all conditions", gCondNone: "(none)",
     gCondSugg: ["1 Platform walking", "2 Platform standing", "2 Sit to stand", "3 Level ground", "4 Treadmill", "5 Stairs up", "5 Stairs down"],
-    gCondSet: c => `# Condition: ${c || "(none)"}`,
-    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides. Condition: pick or type one before each test; every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.",
+    gCondSet: c => `# Condition: ${c || "(none)"}`, gCondOwn: "custom …", gCondOwnPh: "type a condition, Enter",
+    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides. Condition: pick one from the list before each test (“custom …” for another); every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.",
     gPhase: "Force per gait phase (Rancho Los Amigos)",
     gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg. The reference is always the sensor leg (0 % = its initial contact, TO = its toe-off). With a stance below 50 % there is no double support, so LR and PSw are left out (–).",
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
@@ -710,7 +711,8 @@ const TEXT = {
     pkClearAsk: "Remove the pairing code? Anyone nearby can then connect.",
     pkDone: "# Pairing code stored", pkCleared: "# Pairing code removed",
     pkWait: "Pairing: enter the code in the system dialog …", pkFail: "Not paired (wrong code or dialog cancelled). If needed, remove the board in the Bluetooth settings and connect again.",
-    fwRestart: "Restarting the board before the update …", fwNoReconnect: "board not reconnected after the restart; connect again and restart the update",
+    fwRestart: "Restarting the board before the update …", fwNoReconnect: "board not reconnected; connect again and start the update again (it continues where it stopped)",
+    fwResume: p => `Update stuck at ${p} %, reconnecting and resuming …`,
     fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “Firmware update” (v0.4.0 or later).",
     outs: "Outputs:", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     outsHint: "Battery and activity are always on.",
@@ -736,7 +738,7 @@ function applyLang() {
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
-  $("gCondList").innerHTML = T("gCondSugg").map(c => `<option value="${c}">`).join("");
+  condPickFill();
   logDirty = true; renderLogStatus(); renderOuts(); vButtons();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
@@ -952,7 +954,7 @@ const SMP_CHR = "da2e7828-fbce-4e01-ae9e-261174997c48";
 // ob ein 180-Byte-Write ankommt; dann passt jedes SMP-Paket in genau einen Write. Sonst 20-Byte-
 // Stücke mit Pause dazwischen (die Firmware setzt die Pakete wieder zusammen).
 let smpFrag = 20, smpPace = 0, smpData = 128;
-let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwInstalled = null, fwLatestInfo = null;
+let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwPartial = null, fwOff = 0, fwInstalled = null, fwLatestInfo = null;
 
 // --- minimales CBOR (nur was SMP braucht) ---
 function cborEnc(v) {
@@ -1069,6 +1071,21 @@ function parseImage(buf) {
   return hash ? { version, hash } : null;
 }
 
+// pause the measurement streams during an upload: the bandwidth belongs to it
+async function fwQuiet() {
+  for (const c of [dataChr, batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
+  streamOn = false;
+}
+// drop the link (if still there) and connect again without the chooser
+async function fwReconnect(quiet) {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  try { if (bleDev && bleDev.gatt.connected) bleDev.gatt.disconnect(); } catch (e) {}
+  for (let i = 0; i < 50 && bleDev; i++) await sleep(100);
+  for (let i = 0; i < 6 && !(bleDev && smpChr); i++) { await sleep(1500); if (!bleDev && bleLast) await bleOpen(bleLast); }
+  if (!(bleDev && smpChr)) return false;
+  if (quiet) await fwQuiet();
+  return true;
+}
 async function fwInstall(buf) {
   const img = parseImage(buf);
   if (!img) { $("fwState").textContent = T("fwBad"); return; }
@@ -1078,37 +1095,51 @@ async function fwInstall(buf) {
   if (devSt && devSt.flags & DL_ST.VALID && devSt.count - logN > 1 && !confirm(T("fwLogWarn", devSt.count - logN))) return;
   // Uploads were reliable only right after a restart: restart the board first,
   // reconnect (no chooser needed) and then upload
-  if (devSt && devSt.uptime > 30000 && bleLast && smpChr) {
+  // (not when the same image stopped halfway: a restart would lose what the board has)
+  if (devSt && devSt.uptime > 30000 && bleLast && smpChr && fwPartial !== img.version + ":" + buf.length) {
     $("fwState").textContent = T("fwRestart"); log("# " + T("fwRestart"));
     try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* the board disconnects while restarting */ }
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-    for (let i = 0; i < 50 && bleDev; i++) await sleep(100);
-    for (let i = 0; i < 5 && !(bleDev && smpChr); i++) { await sleep(1500); if (!bleDev) await bleOpen(bleLast); }
-    if (!(bleDev && smpChr)) { $("fwState").textContent = T("fwErr", T("fwNoReconnect")); return; }
+    if (!await fwReconnect(false)) { $("fwState").textContent = T("fwErr", T("fwNoReconnect")); return; }
   }
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
   try {
-    // Messdaten-Streaming pausieren: die volle Bandbreite gehört dem Upload
-    for (const c of [dataChr, batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
-    streamOn = false;
+    // SHA-256 of the whole file: with it the board resumes an interrupted upload
+    // (first block again with off 0 -> it answers with the offset it has)
+    const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
+    await fwQuiet();
     // größte Schreib-Größe finden, die vollständig ankommt (Echo mit passend langem Text)
-    try {
-      await smpCall(2, 0, 0, { d: "x".repeat(180 - 14) }, 3000, 180);   // genau 179 Byte, ein Write
-      smpFrag = 180; smpPace = 0; smpData = 128;                         // Upload-Paket ≤ 170 Byte
-    } catch (e) {
-      smpFrag = 20; smpPace = 8; smpData = 128;
+    smpFrag = 20; smpPace = 8; smpData = 128;
+    for (let k = 0; k < 2; k++) {
+      try {
+        await smpCall(2, 0, 0, { d: "x".repeat(180 - 14) }, 3000, 180);   // genau 179 Byte, ein Write
+        smpFrag = 180; smpPace = 0;                                        // Upload-Paket ≤ 170 Byte
+        break;
+      } catch (e) {
+        // no answer at all may also mean a stuck link: reconnect once and probe again
+        if (k || e.message !== "Timeout" || !await fwReconnect(true)) break;
+      }
     }
     log(`# Update: ${smpFrag} Byte pro Schreibvorgang`);
     const t0 = performance.now();
-    let off = 0, tries = 0;
+    let off = 0, tries = 0, reconn = 0; fwOff = 0;
     while (off < buf.length) {
       const body = { image: 0, off, data: buf.slice(off, off + smpData) };
-      if (off === 0) body.len = buf.length;
+      if (off === 0) { body.len = buf.length; body.sha = sha; }
       let r;
       try { r = await smpCall(2, 1, 1, body, off === 0 ? 30000 : 5000); tries = 0; }   // erster Block: Slot löschen
-      catch (e) { if (e.message !== "Timeout" || ++tries > 3) throw e; continue; }    // Block wiederholen
+      catch (e) {
+        if (/^SMP/.test(e.message)) throw e;                      // the board refused the upload
+        if (++tries < 2 && e.message === "Timeout") continue;     // repeat the block once
+        // no answer or link lost: reconnect and resume where the board is
+        if (++reconn > 6) throw e;
+        log("# " + T("fwResume", Math.round(off / buf.length * 100)));
+        if (!await fwReconnect(true)) throw new Error(T("fwNoReconnect"));
+        tries = 0; off = 0;      // first block with len + sha -> the board answers with its offset
+        continue;
+      }
       off = typeof r.off === "number" ? r.off : off + body.data.length;
+      fwOff = off;
       prog.value = off / buf.length;
       const kbs = (off / 1024 / ((performance.now() - t0) / 1000)).toFixed(1);
       $("fwState").textContent = T("fwUp", Math.round(prog.value * 100), kbs);
@@ -1117,6 +1148,7 @@ async function fwInstall(buf) {
     $("fwState").textContent = T("fwReboot"); log("# " + T("fwReboot"));
     try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* Board trennt beim Neustart */ }
   } catch (e) {
+    if (fwOff > 0) fwPartial = img.version + ":" + buf.length;
     $("fwState").textContent = T("fwErr", e.message); log(T("fwErr", e.message));
     if (smpChr) $("fwPick").disabled = false;
   } finally {
@@ -1908,13 +1940,36 @@ function condAt(s) {
   }
   return "";
 }
+// condition picker: no condition, the lab tests, conditions typed so far, "custom …"
+const COND_OWN = "\u0001own";
+function condPickFill() {
+  const pick = $("gCondPick"), cur = $("gCond").value.trim(), pre = T("gCondSugg");
+  const own = [...new Set(condLog.map(e => e.cond))].filter(c => c && !pre.includes(c));
+  if (cur && !pre.includes(cur) && !own.includes(cur)) own.push(cur);
+  const opt = (v, t) => `<option value="${v.replace(/"/g, "&quot;")}">${t.replace(/</g, "&lt;")}</option>`;
+  pick.innerHTML = opt("", T("gCondNone")) + [...pre, ...own].map(c => opt(c, c)).join("") + opt(COND_OWN, T("gCondOwn"));
+  pick.value = cur;
+  $("gCond").placeholder = T("gCondOwnPh");
+}
+$("gCondPick").onchange = () => {
+  const v = $("gCondPick").value, inp = $("gCond");
+  if (v === COND_OWN) { inp.dataset.prev = inp.value; inp.hidden = false; inp.value = ""; inp.focus(); return; }
+  inp.hidden = true;
+  if (v !== inp.value.trim()) { inp.value = v; inp.onchange(); }
+};
+// leaving the field without a new condition keeps the old one
+const condOwnCancel = () => { const inp = $("gCond"); if (inp.hidden) return; inp.value = inp.dataset.prev || ""; inp.hidden = true; condPickFill(); };
+$("gCond").onkeydown = e => { if (e.key === "Escape") condOwnCancel(); };
+$("gCond").onblur = () => setTimeout(() => { if (!$("gCond").value.trim()) condOwnCancel(); }, 0);
 $("gCond").onchange = () => {
   const c = $("gCond").value.trim();
+  $("gCond").hidden = true;
   condLog.push({ sess: stepSess, t: devNowMs(), cond: c });
   log(T("gCondSet", c));
   // in a running long-term measurement, a marker separates the conditions there as well
   if (ctrlChr && devSt && devSt.flags & DL_ST.RUN) { markNo++; ctrlCmd([6, markNo & 255, markNo >> 8]).catch(() => {}); log(T("dlMarked", markNo)); }
   if (c) $("gCondSel").value = "*";
+  condPickFill();
   gaitDirty = true;
 };
 $("gCondSel").onchange = () => { gaitDirty = true; };
