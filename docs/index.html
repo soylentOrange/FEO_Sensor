@@ -2024,6 +2024,11 @@ const u32b = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]
 async function ctrlCmd(bytes) {
   if (!ctrlChr) throw new Error(T("dlNoDev"));
   await gattOp(() => ctrlChr.writeValueWithResponse(new Uint8Array(bytes)));
+  // read the status back shortly after a command: older firmware sends it only
+  // every minute in rest mode, so the shown state would lag behind
+  if (bytes[0] !== 1) [400, 2500].forEach(ms => setTimeout(() => {
+    if (ctrlChr) gattOp(() => ctrlChr.readValue()).then(onStatus).catch(() => {});
+  }, ms));
 }
 function parseStatus(dv) {
   if (dv.byteLength < 44) return null;
