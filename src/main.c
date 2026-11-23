@@ -125,6 +125,7 @@
 #define REST_AFTER_S     20    /* so lange ruhig -> Ruhemodus */
 #define REST_BAT_S       60    /* Akku im Ruhemodus messen */
 #define REST_FSR_S       5     /* rest mode while logging: sample heel load every 5 s */
+#define DFU_HOLD_MS      15000 /* no rest mode this long after a firmware upload block */
 #define STEP_LOG         1024  /* Schritt-Datensätze im RAM */
 #define STEP_LEN         (36 + 2 * GAIT_BINS + 4 * GAIT_PHASES)
 #define ADV_FAST_S       30    /* nach Start/Trennen so lange schnell werben */
@@ -203,6 +204,16 @@ static atomic_t led_bright = ATOMIC_INIT(100);   /* % at initial contact */
 static atomic_t led_flash_ms = ATOMIC_INIT(300);
 static atomic_t stride_total;     /* strides since power-up */
 static atomic_t activity;         /* 0 rest mode, 1 still, 2 moving */
+static atomic_t dfu_ms;           /* uptime of the last upload block (0 = none) */
+
+/* a firmware upload sent a block within the last DFU_HOLD_MS */
+static bool dfu_active(void)
+{
+	uint32_t t = (uint32_t)atomic_get(&dfu_ms);
+
+	return t && k_uptime_get_32() - t < DFU_HOLD_MS;
+}
+
 static atomic_t still_secs;
 
 /* ---------------- Kalibrierung (im Flash) ---------------- */
@@ -1352,7 +1363,7 @@ static void rest(void)
 	int64_t bat_next = k_uptime_get() + REST_BAT_S * 1000;
 	int64_t fsr_next = k_uptime_get() + REST_FSR_S * 1000;
 
-	while (!atomic_get(&imu_woke) && !raw_requested()) {
+	while (!atomic_get(&imu_woke) && !raw_requested() && !dfu_active()) {
 		adv_start_if_needed();
 		step_send_pending();
 		bool busy = log_service();
@@ -1396,18 +1407,22 @@ static void rest(void)
 }
 
 #ifdef CONFIG_MCUMGR_GRP_IMG_STATUS_HOOKS
-/* a firmware upload overwrites slot 1: stop logging before the first write */
+/* a firmware upload overwrites slot 1: stop logging before the first write;
+ * every block also keeps the board out of rest mode while the upload runs */
 static enum mgmt_cb_return dfu_cb(uint32_t event, enum mgmt_cb_return prev_status, int32_t *rc,
 				  uint16_t *group, bool *abort_more, void *data, size_t data_size)
 {
-	dl_dfu_started();
+	if (event == MGMT_EVT_OP_IMG_MGMT_DFU_STARTED) {
+		dl_dfu_started();
+	}
+	atomic_set(&dfu_ms, (atomic_val_t)(k_uptime_get_32() | 1));
 	k_sem_give(&wake_sem);
 	return MGMT_CB_OK;
 }
 
 static struct mgmt_callback dfu_mgmt_cb = {
 	.callback = dfu_cb,
-	.event_id = MGMT_EVT_OP_IMG_MGMT_DFU_STARTED,
+	.event_id = MGMT_EVT_OP_IMG_MGMT_DFU_STARTED | MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK,
 };
 #endif
 
@@ -1632,7 +1647,7 @@ int main(void)
 			led_pct(moving ? (uint8_t)atomic_get(&led_dim) : 0);
 		}
 
-		if (rest_ok && still_s >= REST_AFTER_S && !raw_requested()) {
+		if (rest_ok && still_s >= REST_AFTER_S && !raw_requested() && !dfu_active()) {
 			rest();
 			still_s = 0;
 			moving = true;

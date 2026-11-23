@@ -1,7 +1,7 @@
 // Service Worker: hält die App offline verfügbar. Bei Änderungen an den Dateien VERSION erhöhen.
 // Nur eigene Caches (PREFIX) löschen: andere Apps unter derselben github.io-Adresse nicht anfassen.
 const PREFIX = "feo-live-";
-const VERSION = PREFIX + "v20";
+const VERSION = PREFIX + "v21";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
                "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
 
