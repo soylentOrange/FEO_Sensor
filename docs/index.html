@@ -265,8 +265,8 @@
       <div class="tile"><span data-i18n="gCv"></span><b id="gtCv">–</b></div>
     </div>
     <div class="row">
-      <label><span data-i18n="gCond"></span> <input id="gCond" list="gCondList" size="14" autocomplete="off"></label>
-      <datalist id="gCondList"></datalist>
+      <label><span data-i18n="gCond"></span> <select id="gCondPick" style="min-width:15em"></select></label>
+      <input id="gCond" size="20" autocomplete="off" hidden>
       <label><span data-i18n="gCondSel"></span> <select id="gCondSel"></select></label>
     </div>
     <div class="row">
@@ -506,8 +506,8 @@ const TEXT = {
     gAvg: "Mittel über die letzten", gAll: "alle", gLoad: "Gespeicherte vom Gerät laden", gCsv: "CSV herunterladen", gClear: "Liste leeren",
     gCond: "Bedingung", gCondSel: "Auswertung", gCondAll: "alle Bedingungen", gCondNone: "(ohne)",
     gCondSugg: ["1 Plattform Gehen", "2 Plattform Stehen", "2 Aufstehen", "3 Ebener Boden", "4 Laufband", "5 Treppe auf", "5 Treppe ab"],
-    gCondSet: c => `# Bedingung: ${c || "(ohne)"}`,
-    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte. Bedingung: vor jedem Test wählen oder eintippen; jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.",
+    gCondSet: c => `# Bedingung: ${c || "(ohne)"}`, gCondOwn: "eigene …", gCondOwnPh: "Bedingung eingeben, Enter",
+    gHint: "Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Kraftwerte als Mittel über die gewählten Doppelschritte. Bedingung: vor jedem Test aus der Liste wählen („eigene …“ für eine andere); jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.",
     gPhase: "Kraft je Gangphase (Rancho Los Amigos)",
     gPhHint: "Balken: mittlere Kraft in der Phase (± Standardabweichung), Punkt: mittleres Maximum. Phasengrenzen aus Fersenauftritt und Zehenablösung des Sensorbeins, für das andere Bein wird ein symmetrischer Gang angenommen. Bezug ist immer das Sensorbein (0 % = sein Fersenauftritt, TO = seine Zehenablösung). Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–).",
     gCycle: "Kraft über den Gangzyklus (0 % = Fersenauftritt)", gTrend: "Verlauf je Doppelschritt: größte Kraft (orange) und Loading Response (blau)",
@@ -649,8 +649,8 @@ const TEXT = {
     gAvg: "Mean over the last", gAll: "all", gLoad: "Load stored from device", gCsv: "Download CSV", gClear: "Clear list",
     gCond: "Condition", gCondSel: "Show", gCondAll: "all conditions", gCondNone: "(none)",
     gCondSugg: ["1 Platform walking", "2 Platform standing", "2 Sit to stand", "3 Level ground", "4 Treadmill", "5 Stairs up", "5 Stairs down"],
-    gCondSet: c => `# Condition: ${c || "(none)"}`,
-    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides. Condition: pick or type one before each test; every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.",
+    gCondSet: c => `# Condition: ${c || "(none)"}`, gCondOwn: "custom …", gCondOwnPh: "type a condition, Enter",
+    gHint: "The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. Force values are means over the selected strides. Condition: pick one from the list before each test (“custom …” for another); every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.",
     gPhase: "Force per gait phase (Rancho Los Amigos)",
     gPhHint: "Bars: mean force in the phase (± standard deviation), dot: mean maximum. Phase limits from initial contact and toe-off of the sensor leg; a symmetric gait is assumed for the other leg. The reference is always the sensor leg (0 % = its initial contact, TO = its toe-off). With a stance below 50 % there is no double support, so LR and PSw are left out (–).",
     gCycle: "Force over the gait cycle (0 % = initial contact)", gTrend: "Trend per stride: peak force (orange) and loading response (blue)",
@@ -738,7 +738,7 @@ function applyLang() {
   $("pause").textContent = T(paused ? "resume" : "pause");
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
-  $("gCondList").innerHTML = T("gCondSugg").map(c => `<option value="${c}">`).join("");
+  condPickFill();
   logDirty = true; renderLogStatus(); renderOuts(); vButtons();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
@@ -1940,13 +1940,36 @@ function condAt(s) {
   }
   return "";
 }
+// condition picker: no condition, the lab tests, conditions typed so far, "custom …"
+const COND_OWN = "\u0001own";
+function condPickFill() {
+  const pick = $("gCondPick"), cur = $("gCond").value.trim(), pre = T("gCondSugg");
+  const own = [...new Set(condLog.map(e => e.cond))].filter(c => c && !pre.includes(c));
+  if (cur && !pre.includes(cur) && !own.includes(cur)) own.push(cur);
+  const opt = (v, t) => `<option value="${v.replace(/"/g, "&quot;")}">${t.replace(/</g, "&lt;")}</option>`;
+  pick.innerHTML = opt("", T("gCondNone")) + [...pre, ...own].map(c => opt(c, c)).join("") + opt(COND_OWN, T("gCondOwn"));
+  pick.value = cur;
+  $("gCond").placeholder = T("gCondOwnPh");
+}
+$("gCondPick").onchange = () => {
+  const v = $("gCondPick").value, inp = $("gCond");
+  if (v === COND_OWN) { inp.dataset.prev = inp.value; inp.hidden = false; inp.value = ""; inp.focus(); return; }
+  inp.hidden = true;
+  if (v !== inp.value.trim()) { inp.value = v; inp.onchange(); }
+};
+// leaving the field without a new condition keeps the old one
+const condOwnCancel = () => { const inp = $("gCond"); if (inp.hidden) return; inp.value = inp.dataset.prev || ""; inp.hidden = true; condPickFill(); };
+$("gCond").onkeydown = e => { if (e.key === "Escape") condOwnCancel(); };
+$("gCond").onblur = () => setTimeout(() => { if (!$("gCond").value.trim()) condOwnCancel(); }, 0);
 $("gCond").onchange = () => {
   const c = $("gCond").value.trim();
+  $("gCond").hidden = true;
   condLog.push({ sess: stepSess, t: devNowMs(), cond: c });
   log(T("gCondSet", c));
   // in a running long-term measurement, a marker separates the conditions there as well
   if (ctrlChr && devSt && devSt.flags & DL_ST.RUN) { markNo++; ctrlCmd([6, markNo & 255, markNo >> 8]).catch(() => {}); log(T("dlMarked", markNo)); }
   if (c) $("gCondSel").value = "*";
+  condPickFill();
   gaitDirty = true;
 };
 $("gCondSel").onchange = () => { gaitDirty = true; };
