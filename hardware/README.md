@@ -79,6 +79,13 @@ Pin 2 (GND) of J1 sits next to pin 1 (unswitched LiPo +). Solder carefully and u
 
 Perfboard (left) with the MCP602 and the flat-mounted JST-XH connector, XIAO nRF54L15 Sense (right), both on the crosswise LiPo. Yellow: A0, white: D1.
 
+## Housing
+
+[`FEO_Housing.step`](FEO_Housing.step): 3D-printable housing for the stack above (STEP, exported from Autodesk Fusion). Also needed:
+
+- two short pieces of transparent filament as light guides for the LEDs,
+- an elastic strap to fasten the housing to the lower leg (shank).
+
 ## Regenerating the drawings
 
 ```
