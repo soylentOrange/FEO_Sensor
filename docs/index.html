@@ -509,7 +509,7 @@ const TEXT = {
     dlUnread: n => `${n} Einträge im Gerät sind noch nicht ausgelesen.`, dlNoDev: "nicht verbunden",
     dlHint: "Das Gerät speichert jeden Doppelschritt (Zeit, Dauer, Standphase, Fersenspitze, Mittel, Kraftstoß), jede Minute (Doppelschritte, Bewegung, Fersenlast im Stehen, Akku) und Ereignisse. Die Uhrzeit stellt die App beim Verbinden. Im Ruhemodus misst das Gerät die Fersenlast alle 5 s. Ein Firmware-Update löscht den Speicher, also vorher auslesen.",
     dlReadT: "Auslesen und Export", dlReadB: "Neue Daten auslesen", dlReadAllB: "Alles neu auslesen", dlEraseB: "Speicher im Gerät löschen",
-    dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen`,
+    dlReading: (n, t) => `Lese … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Dauermessung: ${n} Einträge in ${s} s ausgelesen (im Speicher: ${c[2]} Doppelschritte, ${c[3]} Minutenwerte, ${c[4]} Ereignisse, ${c[1]} Messungen)`,
     dlChanged: "# Speicher im Gerät wurde inzwischen gelöscht, lese alles neu", dlHave: n => `${n} Einträge im Browser`,
     dlCsvL: "CSV:", dlCsvS: "Schritte", dlCsvM: "Minuten", dlCsvH: "Stunden", dlCsvE: "Ereignisse",
     dlBinB: "Rohdaten sichern (.bin)", dlOpenB: "Rohdaten öffnen …",
@@ -635,7 +635,7 @@ const TEXT = {
     dlUnread: n => `${n} entries in the device have not been read out yet.`, dlNoDev: "not connected",
     dlHint: "The device stores every stride (time, duration, stance, heel peak, mean, impulse), every minute (strides, movement, heel load while standing, battery) and events. The app sets the clock when connecting. In rest mode the device samples the heel load every 5 s. A firmware update erases the memory, so read it out first.",
     dlReadT: "Readout and export", dlReadB: "Read new data", dlReadAllB: "Read everything again", dlEraseB: "Erase device memory",
-    dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s) => `# Long-term: ${n} entries read in ${s} s`,
+    dlReading: (n, t) => `Reading … ${n} / ${t}`, dlReadDone: (n, s, c) => `# Long-term: ${n} entries read in ${s} s (in memory: ${c[2]} strides, ${c[3]} minute records, ${c[4]} events, ${c[1]} measurements)`,
     dlChanged: "# Device memory was erased in the meantime, reading everything", dlHave: n => `${n} entries in the browser`,
     dlCsvL: "CSV:", dlCsvS: "Strides", dlCsvM: "Minutes", dlCsvH: "Hours", dlCsvE: "Events",
     dlBinB: "Save raw data (.bin)", dlOpenB: "Open raw data …",
@@ -2137,7 +2137,9 @@ function logPacket(dv) {
 }
 function logDone() {
   const s = ((performance.now() - rd.t0) / 1000).toFixed(1);
-  log(T("dlReadDone", rd.n, s));
+  const c = [0, 0, 0, 0, 0];
+  for (let i = 16; i < logN * 16; i += 16) if (logStore[i] >= 1 && logStore[i] <= 4) c[logStore[i]]++;
+  log(T("dlReadDone", rd.n, s, c));
   rd = null; $("dlProg").hidden = true; $("dlRead").textContent = T("dlReadB");
   logDirty = true; logSave(); renderLog(); renderLogStatus();
 }
