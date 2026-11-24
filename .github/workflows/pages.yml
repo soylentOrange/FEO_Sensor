@@ -1,12 +1,10 @@
-# Web-App (docs/) mit der Update-Datei des neuesten Releases auf GitHub Pages veröffentlichen.
-# Läuft bei Änderungen an docs/ auf main, nach jedem Release (von release.yml gestartet) und manuell.
+# Web app (docs/) of the newest release, with its update file, on GitHub Pages.
+# Runs after every release (started by release.yml) and by hand (Actions -> Pages -> Run workflow);
+# changes on main reach Pages only with the next release.
 # Voraussetzung: Settings -> Pages -> Source "GitHub Actions" und Variable DEPLOY_PAGES = true.
 name: Pages
 
 on:
-  push:
-    branches: [main]
-    paths: ["docs/**", "tools/app_build.py"]
   workflow_dispatch:
 
 permissions:
@@ -31,12 +29,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp -r docs site
-          # app version: last tag, plus commits since and the commit if main is ahead of it
-          python3 tools/app_build.py "$(git describe --tags --always)" docs/index.html site/index.html
-          mkdir -p site/fw
-          # neuestes veröffentlichtes Release, Pre-Releases eingeschlossen
+          # neuestes veröffentlichtes Release, Pre-Releases eingeschlossen: dessen Web-App veröffentlichen
           TAG=$(gh api "repos/$GITHUB_REPOSITORY/releases" -q '[.[] | select(.draft | not)][0].tag_name // empty' || true)
+          if [ -n "$TAG" ]; then git checkout -q "$TAG"; fi
+          cp -r docs site
+          # app version: the release tag (git describe of main without a release)
+          if [ -f tools/app_build.py ]; then
+            python3 tools/app_build.py "$(git describe --tags --always)" docs/index.html site/index.html
+          fi
+          mkdir -p site/fw
           if [ -n "$TAG" ]; then
             gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*_update.bin' -D site/fw
             FILE=$(basename "$(ls site/fw/*_update.bin | head -1)")
