@@ -62,6 +62,7 @@
   .badge { font: 600 13px ui-monospace, Menlo, monospace; padding: 4px 10px; border-radius: 12px;
            border: 1px solid var(--grid); background: var(--card); white-space: nowrap; }
   .badge.bat-low { border-color: var(--x); }
+  .badge.stale { opacity: .4; }
   .fw .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
   .fw progress { width: 100%; height: 10px; }
   .fw b { font: 600 12px ui-monospace, Menlo, monospace; }
@@ -411,6 +412,7 @@
       <span id="fwState" class="hint"></span>
     </div>
     <progress id="fwProg" max="1" value="0" hidden></progress>
+    <div class="hint"><span data-i18n="appVerL"></span> <b id="appVer2"></b></div>
   </div>
   <div class="card fw t-fw">
     <h2><span data-i18n="ledTitle"></span></h2>
@@ -432,11 +434,13 @@
   </div>
   <div class="card logc"><div id="log"></div></div>
 </main>
-<footer><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
+<footer><span class="appver">FEO-Sensor App <b id="appVer"></b> · </span><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
   <div class="logos"><a href="https://horizon-smile.eu/" target="_blank" rel="noopener"><img src="assets/Smile-logo.svg" alt="SmILE"></a>
     <img src="assets/eu-funded.svg" alt="Funded by the European Union"></div></footer>
 <script>
 "use strict";
+// set by the release and Pages workflows (tools/app_build.py): release tag, or git describe for Pages
+const APP_VERSION = "dev";
 const $ = id => document.getElementById(id);
 const MAXPTS = 30 * 250;          // Puffer für bis zu 30 s bei 250 Hz
 const buf = [];                   // [t_ms, ax, ay, az, gx, gy, gz, |a|, |ω|, u_fsr_mv, fsr_range_mv, u_bat_mv]
@@ -479,12 +483,15 @@ const TEXT = {
     fitRes: (e, n) => `Fit aus ${n} Punkten: mittlere Abweichung ${e} %. Mit „Ins Gerät schreiben“ übernehmen.`,
     calSaved: "# Kalibrierung im Gerät gespeichert", calErr: m => "Kalibrierung schreiben fehlgeschlagen: " + m,
     tabImu: "IMU", tabCal: "Kalibrierung", tabFw: "Firmware-Update",
+    appVerL: "Version dieser App:", staleT: "Während des Updates nicht aktuell",
+    fwWait: "Übertragen. Board startet neu und installiert das Update, verbinde danach automatisch …",
+    fwDone: v => `Update fertig, Firmware ${v} läuft.`, fwRolled: (v, w) => `Board läuft mit ${w} statt ${v}: Das Update wurde nicht übernommen (zurückgerollt?).`,
+    fwNoBack: "Board nach dem Update nicht wieder verbunden. Bitte von Hand verbinden.",
     fw: "Firmware-Update (Bluetooth)", fwInst: "installiert:", fwPick: "Update-Datei wählen …",
     fwLatest: v => `Neueste Version ${v} installieren`, fwNoSmp: "Diese Firmware hat keine Update-Funktion (einmal per USB die *_factory.hex flashen).",
     fwBad: "Keine gültige Update-Datei (MCUboot-Image *_update.bin erwartet).",
     fwAsk: (v, c) => `Firmware ${v} auf das Board übertragen? Installiert ist ${c}. Das Board startet danach neu.`,
     fwUp: (p, kb) => `Übertrage … ${p} % (${kb} kB/s)`, fwSame: "Diese Version ist bereits installiert.",
-    fwReboot: "Übertragen. Board startet neu und installiert das Update (einige Sekunden), dann neu verbinden.",
     fwErr: m => "Update fehlgeschlagen: " + m, fwBusy: "Update läuft …",
     tabAlign: "Ausrichtung", tabGait: "Labormessung",
     alTitle: "Ausrichtung des Sensors am Unterschenkel",
@@ -626,12 +633,15 @@ const TEXT = {
     fitRes: (e, n) => `Fit from ${n} points: mean deviation ${e} %. Use “Write to device” to keep it.`,
     calSaved: "# Calibration saved in the device", calErr: m => "Writing calibration failed: " + m,
     tabImu: "IMU", tabCal: "Calibration", tabFw: "Firmware update",
+    appVerL: "Version of this app:", staleT: "Not current during the update",
+    fwWait: "Transferred. The board restarts and installs the update, reconnecting automatically …",
+    fwDone: v => `Update done, firmware ${v} is running.`, fwRolled: (v, w) => `The board runs ${w} instead of ${v}: the update was not applied (rolled back?).`,
+    fwNoBack: "Board not reconnected after the update. Please connect by hand.",
     fw: "Firmware update (Bluetooth)", fwInst: "installed:", fwPick: "Choose update file …",
     fwLatest: v => `Install latest version ${v}`, fwNoSmp: "This firmware has no update function (flash the *_factory.hex once via USB).",
     fwBad: "Not a valid update file (MCUboot image *_update.bin expected).",
     fwAsk: (v, c) => `Transfer firmware ${v} to the board? Installed: ${c}. The board restarts afterwards.`,
     fwUp: (p, kb) => `Transferring … ${p} % (${kb} kB/s)`, fwSame: "This version is already installed.",
-    fwReboot: "Transferred. The board restarts and installs the update (a few seconds), then reconnect.",
     fwErr: m => "Update failed: " + m, fwBusy: "Update running …",
     tabAlign: "Alignment", tabGait: "Lab measurement",
     alTitle: "Sensor alignment on the shank",
@@ -756,6 +766,8 @@ function applyLang() {
   if (statusKey) $("status").textContent = T(statusKey);
   fwShowLatest(); showCal(); alTexts(); gaitDirty = true;
   condPickFill();
+  $("appVer").textContent = $("appVer2").textContent = APP_VERSION;
+  fwHoldBadges(fwHold);
   logDirty = true; renderLogStatus(); renderOuts(); vButtons();
   $("lang-de").classList.toggle("on", lang === "de"); $("lang-en").classList.toggle("on", lang === "en");
 }
@@ -971,7 +983,7 @@ const SMP_CHR = "da2e7828-fbce-4e01-ae9e-261174997c48";
 // ob ein 180-Byte-Write ankommt; dann passt jedes SMP-Paket in genau einen Write. Sonst 20-Byte-
 // Stücke mit Pause dazwischen (die Firmware setzt die Pakete wieder zusammen).
 let smpFrag = 20, smpPace = 0, smpData = 128;
-let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwPartial = null, fwOff = 0, fwInstalled = null, fwLatestInfo = null;
+let smpChr = null, smpSeq = 0, smpWait = null, smpRx = null, fwBusy = false, fwHold = false, fwPartial = null, fwOff = 0, fwInstalled = null, fwLatestInfo = null;
 
 // --- minimales CBOR (nur was SMP braucht) ---
 function cborEnc(v) {
@@ -1093,6 +1105,35 @@ async function fwQuiet() {
   for (const c of [dataChr, batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.stopNotifications(); } catch (e) {} }
   streamOn = false;
 }
+// battery and activity are not transmitted during an update: grey them out
+function fwHoldBadges(on) {
+  fwHold = on;
+  ["batBadge", "actBadge"].forEach(id => { const b = $(id); b.classList.toggle("stale", on); b.title = on ? T("staleT") : ""; });
+}
+const fwVerLt = (a, b) => {   // "0.8.0" < "0.9.0"
+  const p = v => String(v).split(/[.+-]/).slice(0, 3).map(Number);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+};
+// after the final restart: wait for MCUboot to install the image, then connect again
+async function fwReconnectAfter(img) {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  for (let i = 0; i < 50 && bleDev; i++) await sleep(100);
+  if (bleDev) { try { bleDev.gatt.disconnect(); } catch (e) {} await sleep(500); }
+  const t0 = Date.now();
+  while (Date.now() - t0 < 90000 && !(bleDev && smpChr) && bleLast) {
+    await sleep(3000);
+    if (bleDev) continue;
+    // a connect to a board that is not advertising yet may hang: give up after 12 s and retry
+    const tmo = setTimeout(() => { try { bleLast.gatt.disconnect(); } catch (e) {} }, 12000);
+    await bleOpen(bleLast);
+    clearTimeout(tmo);
+  }
+  if (!(bleDev && smpChr)) return T("fwNoBack");
+  return fwInstalled && !fwVerLt(fwInstalled, img.version) && !fwVerLt(img.version, fwInstalled)
+    ? T("fwDone", img.version) : T("fwRolled", img.version, verStr(fwInstalled));
+}
 // drop the link (if still there) and connect again without the chooser
 async function fwReconnect(quiet) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1110,13 +1151,15 @@ async function fwInstall(buf) {
   if (cur === img.version && !confirm(T("fwSame") + "\n\n" + T("fwAsk", img.version, cur))) return;
   if (cur !== img.version && !confirm(T("fwAsk", img.version, cur))) return;
   if (devSt && devSt.flags & DL_ST.VALID && devSt.count - logN > 1 && !confirm(T("fwLogWarn", devSt.count - logN))) return;
-  // Uploads were reliable only right after a restart: restart the board first,
-  // reconnect (no chooser needed) and then upload
+  fwHoldBadges(true);
+  // Firmware before 0.9.0 may sleep (rest mode) during an upload: restart it first and
+  // reconnect (no chooser needed). From 0.9.0 an upload keeps the board awake.
   // (not when the same image stopped halfway: a restart would lose what the board has)
-  if (devSt && devSt.uptime > 30000 && bleLast && smpChr && fwPartial !== img.version + ":" + buf.length) {
+  if (fwInstalled && fwVerLt(fwInstalled, "0.9.0") && devSt && devSt.uptime > 30000 && bleLast && smpChr &&
+      fwPartial !== img.version + ":" + buf.length) {
     $("fwState").textContent = T("fwRestart"); log("# " + T("fwRestart"));
     try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* the board disconnects while restarting */ }
-    if (!await fwReconnect(false)) { $("fwState").textContent = T("fwErr", T("fwNoReconnect")); return; }
+    if (!await fwReconnect(false)) { fwHoldBadges(false); $("fwState").textContent = T("fwErr", T("fwNoReconnect")); return; }
   }
   fwBusy = true; $("fwPick").disabled = $("fwLatest").disabled = true;
   const prog = $("fwProg"); prog.hidden = false; prog.value = 0;
@@ -1162,16 +1205,19 @@ async function fwInstall(buf) {
       $("fwState").textContent = T("fwUp", Math.round(prog.value * 100), kbs);
     }
     await smpCall(2, 1, 0, { hash: img.hash, confirm: false });   // beim nächsten Start testen
-    $("fwState").textContent = T("fwReboot"); log("# " + T("fwReboot"));
+    $("fwState").textContent = T("fwWait"); log("# " + T("fwWait"));
     try { await smpCall(2, 0, 5, {}, 2000); } catch (e) { /* Board trennt beim Neustart */ }
+    fwBusy = false; prog.hidden = true;
+    const msg = await fwReconnectAfter(img);
+    $("fwState").textContent = msg; log("# " + msg);
   } catch (e) {
     if (fwOff > 0) fwPartial = img.version + ":" + buf.length;
     $("fwState").textContent = T("fwErr", e.message); log(T("fwErr", e.message));
     if (smpChr) $("fwPick").disabled = false;
   } finally {
-    fwBusy = false; prog.hidden = true; fwShowLatest();
+    fwBusy = false; prog.hidden = true; fwShowLatest(); fwHoldBadges(false);
     if (bleDev && bleDev.gatt.connected) updateStreaming();
-    // nach einem Fehler Streaming wieder starten (nach Erfolg startet das Board ohnehin neu)
+    // notifications on again (after an error; after the reconnect it does no harm)
     if (bleDev && bleDev.gatt.connected)
       for (const c of [batChr, stepChr, ctrlChr, logChr]) { try { if (c) await c.startNotifications(); } catch (e) {} }
   }
@@ -2271,7 +2317,8 @@ async function ctrlConnect(svc) {
   renderLogStatus();
 }
 function ctrlDisconnected() {
-  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("actBadge").hidden = true; batMv = 0; $("fwOld").hidden = true;
+  ctrlChr = logChr = devSt = null; rd = null; actStrides = -1; $("outs").hidden = true; $("fwOld").hidden = true;
+  if (!fwHold) { $("actBadge").hidden = true; batMv = 0; }   // during an update: keep them, greyed out
   renderLogStatus();
 }
 

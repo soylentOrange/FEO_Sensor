@@ -3,6 +3,7 @@
 #    -> GitHub-Release mit
 #      feo_sensor_v1.2.3_factory.hex  (MCUboot + Firmware, einmalig per USB flashen)
 #      feo_sensor_v1.2.3_update.bin            (signiertes Image für das Update per Bluetooth)
+#      feo_app_v1.2.3.html             (web app of this release as one file; open it in Chrome/Edge)
 #  - manuell (Actions -> Run workflow): nur bauen, Dateien als Artefakt
 #  - danach Web-App + neueste Update-Datei auf GitHub Pages (startet pages.yml auf main),
 #    wenn die Repository-Variable DEPLOY_PAGES = true gesetzt ist (Pages-Quelle "GitHub Actions").
@@ -80,6 +81,8 @@ jobs:
           h.merge(IntelHex(f"{app}/zephyr.signed.hex"), overlap="error")
           h.write_hex_file(f"out/feo_sensor_v{v}_factory.hex")
           PY
+          # the web app of the same commit as a single file, stamped with the release version
+          python3 FEO_Sensor/tools/app_build.py "v${V}" FEO_Sensor/docs/index.html "out/feo_app_v${V}.html" --single
           ls -l out
 
       - uses: actions/upload-artifact@v4
