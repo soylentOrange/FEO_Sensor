@@ -1426,6 +1426,23 @@ static struct mgmt_callback dfu_mgmt_cb = {
 };
 #endif
 
+#ifdef CONFIG_MCUMGR_SMP_COMMAND_STATUS_HOOKS
+/* any MCUmgr command (version query, echo before an upload, ...) wakes the board
+ * and keeps it out of rest mode for DFU_HOLD_MS, so an upload never starts asleep */
+static enum mgmt_cb_return smp_cmd_cb(uint32_t event, enum mgmt_cb_return prev_status, int32_t *rc,
+				      uint16_t *group, bool *abort_more, void *data, size_t data_size)
+{
+	atomic_set(&dfu_ms, (atomic_val_t)(k_uptime_get_32() | 1));
+	k_sem_give(&wake_sem);
+	return MGMT_CB_OK;
+}
+
+static struct mgmt_callback smp_cmd_mgmt_cb = {
+	.callback = smp_cmd_cb,
+	.event_id = MGMT_EVT_OP_CMD_RECV,
+};
+#endif
+
 int main(void)
 {
 	struct sensor_value acc[3], gyr[3];
@@ -1461,6 +1478,9 @@ int main(void)
 	dl_init();
 #ifdef CONFIG_MCUMGR_GRP_IMG_STATUS_HOOKS
 	mgmt_callback_register(&dfu_mgmt_cb);
+#endif
+#ifdef CONFIG_MCUMGR_SMP_COMMAND_STATUS_HOOKS
+	mgmt_callback_register(&smp_cmd_mgmt_cb);
 #endif
 
 	int err = bt_enable(NULL);

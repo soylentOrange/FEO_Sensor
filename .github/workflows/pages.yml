@@ -6,7 +6,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: ["docs/**"]
+    paths: ["docs/**", "tools/app_build.py"]
   workflow_dispatch:
 
 permissions:
@@ -24,12 +24,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # tags for the app version (git describe)
 
       - name: Seite mit neuester Firmware zusammenstellen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp -r docs site
+          # app version: last tag, plus commits since and the commit if main is ahead of it
+          python3 tools/app_build.py "$(git describe --tags --always)" docs/index.html site/index.html
           mkdir -p site/fw
           # neuestes veröffentlichtes Release, Pre-Releases eingeschlossen
           TAG=$(gh api "repos/$GITHUB_REPOSITORY/releases" -q '[.[] | select(.draft | not)][0].tag_name // empty' || true)
