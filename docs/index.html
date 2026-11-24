@@ -118,7 +118,7 @@
   .dlt table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, Menlo, monospace; }
   .dlt th, .dlt td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
   .dlt th { font-weight: 600; color: var(--muted); } .dlt .tbl { max-height: 16em; overflow: auto; }
-  .gm .tbl { max-height: none; } .gm td.gmg { font-weight: 600; padding-top: .6em; }
+  .gm .tbl { max-height: none; } .bt .tbl { max-height: 24em; } .bt tr.gmg td { font-weight: 600; } .bt h2 label { font-weight: 400; font-size: .8em; } .gm td.gmg { font-weight: 600; padding-top: .6em; }
   .dlt td:first-child, .dlt th:first-child { text-align: left; }
   .outs { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 0 16px 10px; font-size: 12px; color: var(--muted); }
   .outs label { display: inline-flex; gap: 4px; align-items: center; color: var(--fg); }
@@ -371,7 +371,7 @@
       <div class="tile"><span data-i18n="gN"></span><b id="dlSumN">–</b></div>
       <div class="tile f"><span data-i18n="dlSumOverL"></span><b id="dlSumOver">–</b></div>
       <div class="tile f"><span data-i18n="dlSumPkL"></span><b id="dlSumPk">–</b></div>
-      <div class="tile"><span data-i18n="dlSumMoveL"></span><b id="dlSumMove">–</b></div>
+      <div class="tile" data-i18n-title="dlSumMoveT"><span data-i18n="dlSumMoveL"></span><b id="dlSumMove">–</b></div>
       <div class="tile"><span data-i18n="dlSumRestL"></span><b id="dlSumRest">–</b></div>
     </div>
     <canvas id="dlHc"></canvas>
@@ -381,6 +381,15 @@
     <h2><span data-i18n="gmTitle"></span></h2>
     <div class="tbl"><table><thead id="gmHead"></thead><tbody id="gmBody"></tbody></table></div>
     <div class="hint" data-i18n="gmHint"></div>
+  </div>
+  <div class="card dlt bt logc t-log">
+    <h2><span data-i18n="btTitle"></span>
+      <label><span data-i18n="btMin"></span> <select id="dlBoutMin"><option>2</option><option>5</option><option selected>10</option>
+        <option>20</option><option>50</option></select></label></h2>
+    <div class="tbl"><table><thead><tr><th data-i18n="btStart"></th><th data-i18n="btDur"></th><th data-i18n="dlThN"></th><th data-i18n="btCad"></th>
+      <th data-i18n="btStance"></th><th data-i18n="btPkMean"></th><th data-i18n="btPkMed"></th><th data-i18n="btUnl"></th><th data-i18n="btImp"></th><th data-i18n="btHeel"></th></tr></thead>
+      <tbody id="dlBt"></tbody></table></div>
+    <div class="hint" data-i18n="btHint"></div>
   </div>
   <div class="card dlt t-log">
     <h2><span data-i18n="dlHours"></span></h2>
@@ -537,7 +546,7 @@ const TEXT = {
     dlReadHint: "Die App liest nur die neuen Einträge nach. Die Rohdaten (.bin) enthalten alles, was das Gerät gespeichert hat, und lassen sich später wieder öffnen.",
     dlEval: "Auswertung", dlSessSel: "Messung", dlThrA: "Schwelle für die Auswertung (kg)",
     dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · Schwelle im Gerät ${th} kg · Start ${t}` + (nt ? ` · ${nt} Doppelschritte ohne Uhrzeit` : ""),
-    dlSumDurL: "Dauer (h)", dlSumOverL: "Doppelschritte > Schwelle (%)", dlSumPkL: "Fersenspitze Mittel (kg)", dlSumMoveL: "Minuten mit Bewegung (h)",
+    dlSumDurL: "Dauer (min)", dlSumOverL: "Doppelschritte > Schwelle (%)", dlSumPkL: "Fersenspitze Mittel (kg)", dlSumMoveL: "Zeit in Bewegung (min)", dlSumMoveT: "Summe der Sekunden, in denen sich der Unterschenkel bewegt hat (Drehrate über 20 °/s oder Beschleunigungsänderung über 0,1 g). Zählt Gehen und jede andere Beinbewegung, z. B. Wippen im Sitzen.",
     dlSumRestL: "Stehen mit Last > Schwelle (min)",
     gm: {
       gAct: "Gehen", n: "Doppelschritte", steps: "Schritte", walkMin: "Gehzeit in Bouts (min)", bouts: "Gehbouts", b10: "Bouts < 10 s", b30: "Bouts 10–30 s",
@@ -548,10 +557,14 @@ const TEXT = {
       gVar: "Variabilität", cvStride: "CV Doppelschrittdauer (%)", cvStance: "CV Standzeit (%)", cvPk: "CV Fersenspitze (%)", varN: "Doppelschritte (Bouts) dafür",
       gLoad: "Fersenlast", imp: "Kraftstoß gesamt (kg·s)", impStride: "Kraftstoß je Doppelschritt (kg·s)", over: "Doppelschritte > Schwelle (%)", pk: "Fersenspitze Median (kg)",
       heel: "Fersenkontakt Median (% Stand)", rate: "Belastungsrate Median (kg/s)",
-      gPos: "Körperlage (in Ruhe)", logged: "Erfasst (h)", move: "Bewegung (h)", up: "Aufrecht ohne Fersenlast (h)", standLoad: "Stehen mit Fersenlast (h)", lie: "Liegen / Bein hoch (h)",
+      gPos: "Körperlage (in Ruhe)", logged: "Erfasst (min)", move: "Zeit in Bewegung (min)", up: "Aufrecht ohne Fersenlast (min)", standLoad: "Stehen mit Fersenlast (min)", lie: "Liegen / Bein hoch (min)",
     },
-    dlHcHint: "Doppelschritte je Stunde (blau), davon mit Fersenspitze über der Schwelle (orange). „Stehen mit Last“ zählt mit der Schwelle, die beim Start im Gerät eingestellt war.",
-    dlHours: "Stundenwerte", dlThHour: "Stunde", dlThN: "DS", dlThOver: "> Schw.", dlThPk: "F̅ Spitze", dlThPkMax: "F max", dlThMove: "Bew. min", dlThRest: "Stehen min",
+    dlHcHint: "Doppelschritte je Stunde (blau), davon mit Fersenspitze über der Schwelle (orange). „Stehen mit Last“ zählt mit der Schwelle, die beim Start im Gerät eingestellt war. „Zeit in Bewegung“: Sekunden, in denen sich der Unterschenkel bewegt hat (Gehen und jede andere Beinbewegung), als Summe.",
+    btTitle: "Fersenlast je Gehbout", btMin: "mindestens Doppelschritte", btStart: "Beginn", btDur: "Dauer (s)", btCad: "Kadenz",
+    btStance: "Stand %", btPkMean: "F̅ Spitze", btPkMed: "Median", btUnl: "entlastet %", btImp: "Kraftstoß/DS", btHeel: "Fersenkontakt %",
+    btAll: n => `alle ${n} Bouts`,
+    btHint: "Je Gehbout (Pausen unter 3 s) mit mindestens so vielen Doppelschritten wie gewählt; erste Zeile: alle diese Bouts zusammen (je Doppelschritt gewichtet). Kadenz in Schritten/min. F̅ Spitze und Median der Fersenspitze in kg; „entlastet“ = Anteil der Doppelschritte mit Fersenspitze bis zur Schwelle oben; Kraftstoß je Doppelschritt in kg·s; Fersenkontakt in % der Standphase (ab Firmware v0.8.0). Die CSV „Gehbouts“ enthält alle Bouts mit denselben Werten.",
+    dlHours: "Stundenwerte", dlThHour: "Stunde", dlThN: "DS", dlThOver: "> Schw.", dlThPk: "F̅ Spitze", dlThPkMax: "F max", dlThMove: "in Bew. min", dlThRest: "Stehen min",
     dlEvents: "Ereignisse (ohne Ruhe/Aktiv, die stehen in der CSV)", dlThTime: "Zeit", dlThEv: "Ereignis",
     dlPseudoBad: "Pseudonym: 1 bis 8 Zeichen (Buchstaben, Ziffern), keine Namen.", dlThrBad: "Schwelle zwischen 0 und 100 kg angeben.",
     dlStopAsk: "Dauermessung beenden?", dlEraseAsk: "Alle Messdaten im Gerät löschen?",
@@ -680,7 +693,7 @@ const TEXT = {
     dlReadHint: "The app only reads the new entries. The raw data (.bin) contains everything the device stored and can be opened again later.",
     dlEval: "Analysis", dlSessSel: "Measurement", dlThrA: "Threshold for the analysis (kg)",
     dlSessInfo: (p, sd, th, t, nt) => `${p} · ${sd} · device threshold ${th} kg · start ${t}` + (nt ? ` · ${nt} strides without clock time` : ""),
-    dlSumDurL: "Duration (h)", dlSumOverL: "Strides > threshold (%)", dlSumPkL: "Mean heel peak (kg)", dlSumMoveL: "Minutes with movement (h)",
+    dlSumDurL: "Duration (min)", dlSumOverL: "Strides > threshold (%)", dlSumPkL: "Mean heel peak (kg)", dlSumMoveL: "Time moving (min)", dlSumMoveT: "Sum of the seconds in which the shank moved (angular rate above 20 °/s or acceleration change above 0.1 g). Counts walking and any other leg movement, e.g. jiggling while seated.",
     dlSumRestL: "Standing with load > threshold (min)",
     gm: {
       gAct: "Walking", n: "Strides", steps: "Steps", walkMin: "Walking time in bouts (min)", bouts: "Walking bouts", b10: "Bouts < 10 s", b30: "Bouts 10–30 s",
@@ -691,10 +704,14 @@ const TEXT = {
       gVar: "Variability", cvStride: "CV stride time (%)", cvStance: "CV stance time (%)", cvPk: "CV heel peak (%)", varN: "Strides (bouts) used",
       gLoad: "Heel load", imp: "Total impulse (kg·s)", impStride: "Impulse per stride (kg·s)", over: "Strides > threshold (%)", pk: "Heel peak median (kg)",
       heel: "Heel contact median (% stance)", rate: "Loading rate median (kg/s)",
-      gPos: "Posture (at rest)", logged: "Logged (h)", move: "Movement (h)", up: "Upright without heel load (h)", standLoad: "Standing with heel load (h)", lie: "Lying / leg up (h)",
+      gPos: "Posture (at rest)", logged: "Logged (min)", move: "Time moving (min)", up: "Upright without heel load (min)", standLoad: "Standing with heel load (min)", lie: "Lying / leg up (min)",
     },
-    dlHcHint: "Strides per hour (blue), of which with heel peak above the threshold (orange). “Standing with load” uses the threshold set in the device at start.",
-    dlHours: "Hourly values", dlThHour: "Hour", dlThN: "Strides", dlThOver: "> thr.", dlThPk: "Mean peak", dlThPkMax: "F max", dlThMove: "Move min", dlThRest: "Stand min",
+    dlHcHint: "Strides per hour (blue), of which with heel peak above the threshold (orange). “Standing with load” uses the threshold set in the device at start. “Time moving”: seconds in which the shank moved (walking and any other leg movement), summed up.",
+    btTitle: "Heel load per walking bout", btMin: "at least strides", btStart: "Start", btDur: "Duration (s)", btCad: "Cadence",
+    btStance: "Stance %", btPkMean: "Mean peak", btPkMed: "Median", btUnl: "unloaded %", btImp: "Impulse/stride", btHeel: "Heel contact %",
+    btAll: n => `all ${n} bouts`,
+    btHint: "Per walking bout (pauses below 3 s) with at least the chosen number of strides; first row: all these bouts together (weighted per stride). Cadence in steps/min. Mean and median heel peak in kg; “unloaded” = share of strides with a heel peak up to the threshold above; impulse per stride in kg·s; heel contact in % of stance (firmware v0.8.0 or later). The “Walking bouts” CSV has all bouts with the same values.",
+    dlHours: "Hourly values", dlThHour: "Hour", dlThN: "Strides", dlThOver: "> thr.", dlThPk: "Mean peak", dlThPkMax: "F max", dlThMove: "Moving min", dlThRest: "Stand min",
     dlEvents: "Events (without rest/wake, those are in the CSV)", dlThTime: "Time", dlThEv: "Event",
     dlPseudoBad: "Pseudonym: 1 to 8 characters (letters, digits), no names.", dlThrBad: "Enter a threshold between 0 and 100 kg.",
     dlStopAsk: "Stop the long-term measurement?", dlEraseAsk: "Erase all measurement data in the device?",
@@ -2408,7 +2425,7 @@ function gaitMeasures(s, thr) {
   const calc = (st, bs, mins) => {
     const m = strideMeasures(st), v = variability(bs, 20, 2), b10 = bs.filter(b => b.dur >= 10);
     const spm = mins.map(x => 2 * x.strides).sort((a, b) => b - a), v2 = mins.some(x => x.lie !== null);
-    const minS = k => v2 ? sum(mins.map(x => x[k])) / 3600 : NaN;
+    const minS = k => v2 ? sum(mins.map(x => x[k])) / 60 : NaN;
     return {
       n: st.length, steps: 2 * st.length, walkMin: sum(bs.map(b => b.dur)) / 60, bouts: bs.length,
       b10: bs.filter(b => b.dur < 10).length, b30: bs.filter(b => b.dur >= 10 && b.dur < 30).length,
@@ -2420,7 +2437,7 @@ function gaitMeasures(s, thr) {
       cvStride: v.stride, cvStance: v.stance, cvPk: v.pk, varN: v.n ? `${v.n} (${v.bouts})` : "–",
       imp: sum(st.map(x => x.imp)), impStride: mean(st.map(x => x.imp)), over: st.length ? 100 * st.filter(x => x.pk > thr).length / st.length : NaN,
       pk: median(st.map(x => x.pk)), heel: m.heel, rate: m.rate,
-      logged: mins.length / 60, move: sum(mins.map(x => x.move)) / 3600, up: minS("up"), standLoad: sum(mins.map(x => x.restS)) / 3600, lie: minS("lie"),
+      logged: mins.length, move: sum(mins.map(x => x.move)) / 60, up: minS("up"), standLoad: sum(mins.map(x => x.restS)) / 60, lie: minS("lie"),
     };
   };
   const cols = [{ key: "*", v: calc(s.strides, bouts, s.minutes) }];
@@ -2436,8 +2453,25 @@ const GM_ROWS = [["gAct"], ["n", 0], ["steps", 0], ["walkMin", 1], ["bouts", 0],
   ["gRhy"], ["stance", 1], ["swing", 2], ["ratio", 2], ["msw", 0], ["rom", 1],
   ["gVar"], ["cvStride", 1], ["cvStance", 1], ["cvPk", 1], ["varN"],
   ["gLoad"], ["imp", 0], ["impStride", 2], ["over", 1], ["pk", 1], ["heel", 0], ["rate", 0],
-  ["gPos"], ["logged", 1], ["move", 2], ["up", 2], ["standLoad", 2], ["lie", 2]];
+  ["gPos"], ["logged", 0], ["move", 0], ["up", 0], ["standLoad", 0], ["lie", 0]];
 const gmVal = (v, d) => typeof v === "string" ? v : Number.isFinite(v) ? v.toFixed(d) : "–";
+// heel load values of a group of strides (one bout, or several together)
+function boutLoad(a, thr) {
+  const hc = median(a.map(x => x.heel));
+  return { n: a.length, cad: 120000 / mean(a.map(x => x.stride)), stance: mean(a.map(x => 100 * x.stance / x.stride)),
+    pkMean: mean(a.map(x => x.pk)), pkMed: median(a.map(x => x.pk)), unl: a.length ? 100 * a.filter(x => !(x.pk > thr)).length / a.length : NaN,
+    imp: mean(a.map(x => x.imp)), heel: Number.isFinite(hc) ? hc : NaN };
+}
+function renderBouts(s, thr) {
+  const minN = Number($("dlBoutMin").value) || 2, fx = (x, d) => Number.isFinite(x) ? x.toFixed(d) : "–";
+  const bs = s ? gaitMeasures(s, thr).bouts.filter(b => b.n >= minN) : [];
+  const row = (c0, dur, v) => `<td>${fx(dur, 0)}</td><td>${v.n}</td><td>${fx(v.cad, 0)}</td><td>${fx(v.stance, 1)}</td>` +
+    `<td>${fx(v.pkMean, 1)}</td><td>${fx(v.pkMed, 1)}</td><td>${fx(v.unl, 0)}</td><td>${fx(v.imp, 2)}</td><td>${fx(v.heel, 0)}</td>`;
+  const all = bs.length ? `<tr class="gmg"><td>${T("btAll", bs.length)}</td>` + row(0, sum(bs.map(b => b.dur)), boutLoad(bs.flatMap(b => b.strides), thr)) + "</tr>" : "";
+  $("dlBt").innerHTML = all + bs.map(b => `<tr><td>${b.ms !== null && b.ms !== undefined ? tsLocal(b.ms).slice(0, 16) : "+" + (b.strides[0].t / 1000).toFixed(0) + " s"}</td>` +
+    row(0, b.dur, boutLoad(b.strides, thr)) + "</tr>").join("");
+}
+$("dlBoutMin").onchange = () => renderLog();
 function renderGm(s, thr) {
   if (!s) { $("gmHead").innerHTML = $("gmBody").innerHTML = ""; return; }
   const { cols } = gaitMeasures(s, thr), L = TEXT[lang].gm;
@@ -2543,20 +2577,21 @@ function renderLog() {
   const st = s ? s.strides : [], over = st.filter(x => x.pk > thr).length;
   const tm = s ? [...s.strides, ...s.minutes, ...s.events].map(e => e.ms).filter(x => x !== null) : [];
   const dur = tm.length ? (Math.max(...tm) - Math.min(...tm)) / 3600000 : NaN;
-  $("dlSumDur").textContent = fx(dur, 1);
+  $("dlSumDur").textContent = fx(dur * 60, 0);
   $("dlSumN").textContent = st.length || (s ? 0 : "–");
   $("dlSumOver").textContent = st.length ? fx(100 * over / st.length, 1) : "–";
-  $("dlSumMove").textContent = s ? (s.minutes.filter(m => m.move).length / 60).toFixed(1) : "–";
+  $("dlSumMove").textContent = s ? (sum(s.minutes.map(m => m.move)) / 60).toFixed(0) : "–";
   $("dlSumPk").textContent = st.length ? fx(mean(st.map(x => x.pk)), 1) : "–";
   $("dlSumRest").textContent = s ? (s.minutes.reduce((a, m) => a + m.restS, 0) / 60).toFixed(0) : "–";
   $("dlSumInfo").textContent = s ? T("dlSessInfo", s.pseudo || "–", sideTxt(s.side), s.thr.toFixed(2),
     s.unix ? tsLocal(s.unix * 1000) : "?", st.filter(x => x.ms === null).length) : "";
   renderGm(s, thr);
+  renderBouts(s, thr);
   const H = s ? hours(s, thr) : [];
   drawHours(H);
   $("dlHt").innerHTML = H.map(h => `<tr><td>${tsLocal(h.t).slice(0, 13)}</td><td>${h.n}</td><td>${h.over}</td>` +
     `<td>${h.n ? (100 * h.over / h.n).toFixed(0) : "–"}</td><td>${h.n ? (h.pkSum / h.n).toFixed(1) : "–"}</td><td>${h.n ? h.pkMax.toFixed(1) : "–"}</td>` +
-    `<td>${h.moveMin}</td><td>${(h.restS / 60).toFixed(0)}</td><td>${h.bat ? (h.bat / 1000).toFixed(2) : "–"}</td></tr>`).join("");
+    `<td>${(h.moveS / 60).toFixed(0)}</td><td>${(h.restS / 60).toFixed(0)}</td><td>${h.bat ? (h.bat / 1000).toFixed(2) : "–"}</td></tr>`).join("");
   $("dlEt").innerHTML = s ? s.events.filter(e => e.code !== 5 && e.code !== 6).slice(-200).reverse().map(e => `<tr><td>${e.ms !== null ? tsLocal(e.ms) : "+" + (e.t / 1000).toFixed(0) + " s"}</td>` +
     `<td>${EV_NAMES[e.code] || e.code}</td><td>${evDetail(e)}</td></tr>`).join("") : "";
 }
@@ -2648,11 +2683,12 @@ function sessCsv(kind) {
       hours(s, th).forEach(h => rows.push([...pre, tsLocal(h.t).slice(0, 13), th, h.n, h.over, h.n ? (100 * h.over / h.n).toFixed(1) : "",
         h.n ? (h.pkSum / h.n).toFixed(2) : "", h.n ? h.pkMax : "", h.min, h.moveMin, h.moveS, h.restS, h.bat || ""]));
     } else if (kind === "bouts") {
-      head = "session,pseudonym,side,start_local,unix_ms,segment,t_ic_ms,duration_s,strides,cadence_spm,stance_pct,f_peak_kg_median,heel_contact_pct_median,cv_stride_pct";
-      gaitMeasures(s, th).bouts.forEach(b => { const a = b.strides, v = variability([b], 3, 0);
+      head = "session,pseudonym,side,start_local,unix_ms,segment,t_ic_ms,duration_s,strides,cadence_spm,stance_pct,f_peak_kg_median,heel_contact_pct_median,cv_stride_pct," +
+        "threshold_kg,f_peak_kg_mean,pct_unloaded,impulse_per_stride_kgs";
+      gaitMeasures(s, th).bouts.forEach(b => { const a = b.strides, v = variability([b], 3, 0), L = boutLoad(a, th);
         rows.push([...pre, tsLocal(b.ms), b.ms ?? "", a[0].seg, a[0].t, b.dur.toFixed(2), b.n, b.cad.toFixed(1),
-          mean(a.map(x => 100 * x.stance / x.stride)).toFixed(1), median(a.map(x => x.pk)).toFixed(2),
-          Number.isFinite(median(a.map(x => x.heel))) ? median(a.map(x => x.heel)).toFixed(0) : "", Number.isFinite(v.stride) ? v.stride.toFixed(2) : ""]); });
+          L.stance.toFixed(1), L.pkMed.toFixed(2), Number.isFinite(L.heel) ? L.heel.toFixed(0) : "", Number.isFinite(v.stride) ? v.stride.toFixed(2) : "",
+          th, L.pkMean.toFixed(2), L.unl.toFixed(1), Number.isFinite(L.imp) ? L.imp.toFixed(3) : ""]); });
     } else if (kind === "days") {
       // one row per session and day (plus "total"), one column per measure
       head = "session,pseudonym,side,day,threshold_kg," + GM_ROWS.filter(([k, d]) => d !== undefined || k === "varN").map(([k]) => k).join(",");

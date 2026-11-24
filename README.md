@@ -309,15 +309,16 @@ The live plot of the sagittal angular rate shows whether the result is right (la
 1. Connect via Bluetooth. The app sets the device clock.
 2. Enter a **pseudonym** (1–8 characters, no names), the **side** and the **threshold** (default 2 kg), then **Start measurement**. The device logs on its own until **Stop measurement**, even without the app.
 3. **Read new data** loads only the entries added since the last readout (about 4 s per 13,000 entries). The data stays in the browser; **Save raw data (.bin)** keeps everything and can be opened again later without the device.
-4. **Analysis** per measurement: duration, strides, share of strides with heel peak above an adjustable threshold (primary endpoint), mean heel peak, minutes with movement, time standing with load; strides per hour as a chart and table; events.
+4. **Analysis** per measurement: duration (min), strides, share of strides with heel peak above an adjustable threshold (primary endpoint), mean heel peak, time moving (min: sum of the seconds in which the shank moved, angular rate above 20 °/s or acceleration change above 0.1 g, so walking and any other leg movement), time standing with load; strides per hour as a chart and table; events.
 5. **Gait measures in daily life**, per day and in total:
    - *Walking bouts* (Mobilise-D definition: at least 2 strides, pauses below 3 s): number, walking time, bouts < 10 s, 10–30 s, 30–60 s and > 60 s, longest and median duration.
    - *Cadence* (steps/min): median and 95th percentile over bouts of at least 10 s, peak 1-minute and peak 30-minute cadence (mean of the 30 best minutes, Tudor-Locke), minutes at ≥ 100 steps/min.
    - *Stance and swing:* stance %, swing time, stance/swing ratio, swing peak, shank excursion.
    - *Variability:* CV of stride time, stance time and heel peak within bouts of at least 20 strides, without the first and last 2.
    - *Heel load:* total and per-stride impulse (cumulative load), share above the threshold, median peak, heel contact and loading rate.
-   - *Posture at rest:* movement, upright without heel load (sitting or standing unloaded), standing with heel load, lying / leg up.
-6. **CSV** export of strides, minutes, hours, events, gait measures (one row per day) and walking bouts (local time and Unix ms).
+   - *Posture at rest* (minutes): time moving, upright without heel load (sitting or standing unloaded), standing with heel load, lying / leg up.
+5a. **Heel load per walking bout:** a table of all bouts with at least 2, 5, 10, 20 or 50 strides (selectable, default 10): start, duration, strides, cadence, stance %, mean and median heel peak, share of unloaded strides (heel peak up to the threshold), impulse per stride and heel contact; the first row combines all listed bouts.
+6. **CSV** export of strides, minutes, hours, events, gait measures (one row per day) and walking bouts with the heel load values (local time and Unix ms).
 
 Read out before a firmware update: the update erases the log.
 
