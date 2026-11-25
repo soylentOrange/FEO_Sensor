@@ -90,7 +90,7 @@ Release builds contain the **MCUboot** bootloader and an **MCUmgr/SMP** service,
 
 **Making a release:** on GitHub, *Releases → Draft a new release*, type a new tag like `v1.0.0` under *Choose a tag* (“Create new tag on publish”), and publish. Or from a clone: `git tag v1.0.0 && git push origin v1.0.0`. The tag must have the form `vX.Y.Z`; it becomes the firmware version. The workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) builds with Zephyr 4.4.2 and sysbuild ([`west.yml`](west.yml), [`zephyr/sysbuild.conf`](zephyr/sysbuild.conf), [`zephyr/ota.conf`](zephyr/ota.conf)) and attaches both files to the release, together with `feo_app_vX.Y.Z.html`: the web app of the same commit as one self-contained file (open it in Chrome or Edge; Bluetooth works from disk), so the app version used in a study stays available. *Run workflow* without a tag only builds (artifacts).
 
-**App version:** the app shows its version in the footer and on the Firmware tab. Release files and GitHub Pages carry the release tag (`v1.2.3`); a copy opened straight from the repository shows `dev`. Stamping and the single-file build: [`tools/app_build.py`](tools/app_build.py).
+**App version:** the app shows its version in the footer and on the System tab. Release files and GitHub Pages carry the release tag (`v1.2.3`); a copy opened straight from the repository shows `dev`. Stamping and the single-file build: [`tools/app_build.py`](tools/app_build.py).
 
 **Automatic download in the app:** browsers cannot download release assets directly (no CORS). Therefore each release also publishes the web app together with `fw/latest.json` and the update file on GitHub Pages, and the app offers *Install latest version*. The workflow [`pages.yml`](.github/workflows/pages.yml) publishes the web app of the newest release (pre-releases included), so changes on `main` reach Pages only with the next release; *Actions → Pages → Run workflow* redeploys it by hand. One-time setup: *Settings → Pages → Source: GitHub Actions*, and *Settings → Secrets and variables → Actions → Variables*: `DEPLOY_PAGES` = `true`.
 
@@ -147,7 +147,7 @@ The rotation axis comes from the [sensor alignment](#sensor-alignment). Without 
 - After 20 s without movement, and while no app requests raw data, the sensor goes to **rest**: gyro off, accelerometer in low-power mode (26 Hz, ±2 g) with its wake-up interrupt on INT1 (P0.02), MCP602 supply (D1) off, no serial output. The nRF sleeps until the IMU detects movement and measures the battery once a minute. On wake-up the amplifier gets 50 ms to settle before the first force sample.
 - **Raw data** (IMU + FSR, `7a1e0012`) is only sent while the app subscribes to it. The app does this only on the IMU, Calibration and Alignment tabs and during a recording. Steps are always sent on their own characteristic.
 - **Advertising** runs at 100–150 ms for 30 s after power-on or disconnect, then at about 2 s. Without a connection nothing else is sent.
-- **LED:** off at rest; dimly on while movement is detected; a bright flash at every initial contact. Dim and bright level (% duty of a software PWM, the LED pin has no hardware PWM) and the flash length are set in the app (Firmware tab, stored in flash); defaults 3 %, 100 %, 300 ms; 0 % switches either off.
+- **LED:** off at rest; dimly on while movement is detected; a bright flash at every initial contact. Dim and bright level (% duty of a software PWM, the LED pin has no hardware PWM) and the flash length are set in the app (System tab, stored in flash); defaults 3 %, 100 %, 300 ms; 0 % switches either off.
 - The **serial console is off** (`uart20` disabled, no `printk`): the sensor talks only via Bluetooth. Flashing over USB goes through the SWD debugger on the XIAO and still works. For debugging output, remove the console block at the end of `zephyr/prj.conf` and the `uart20` node in `zephyr/app.overlay`; the serial formats below then apply again.
 - While a long-term measurement runs, the rest mode switches the amplifier on for 50 ms every 5 s to sample the heel load (standing with load) and reads the accelerometer for the shank tilt.
 
@@ -172,7 +172,7 @@ Raw data (BLE) and stride records (BLE) can be switched off individually (stored
 
 ### Pairing Code
 
-Without a code, anyone nearby can connect (default). A 6-digit code can be set in the app (Firmware tab); it is stored on the board. From then on, the FEO service and the firmware update (MCUmgr/SMP) need a link that is paired with the code: on connect the board requests pairing, the phone or computer shows its pairing dialog once, and the bond is stored on both sides. Until the link is paired, the board refuses reads and writes and disconnects after 60 s. Changing or removing the code drops all bonds.
+Without a code, anyone nearby can connect (default). A 6-digit code can be set in the app (System tab); it is stored on the board. From then on, the FEO service and the firmware update (MCUmgr/SMP) need a link that is paired with the code: on connect the board requests pairing, the phone or computer shows its pairing dialog once, and the bond is stored on both sides. Until the link is paired, the board refuses reads and writes and disconnects after 60 s. Changing or removing the code drops all bonds.
 
 Code forgotten: hold the user button on the XIAO for 5 s while switching on (the LED blinks); this clears the code and all bonds. Then remove the board in the Bluetooth settings of the phone or computer. Flashing via USB does not clear the code (the settings partition is kept). Firmware images are still verified with the signing key, independent of the code.
 
@@ -249,18 +249,18 @@ The app lives in [`docs/index.html`](docs/index.html). It can be opened directly
 ### Features
 
 - Connect via **Bluetooth LE** (the USB serial connection is hidden because the firmware no longer uses the console)
-- Tabs: **Lab measurement** (strides and force per gait phase, video), **Long-term** (measurement in the device), **Alignment** (sensor axes on the shank), **Calibration** (force sensor, kg display, calibration points, coefficients), **IMU** (plots and 3D view), **Firmware** (update, outputs, LED, pairing code) and **Manual**. Connection, recording, battery and activity badges and log stay visible on every tab; the last tab is remembered and can be linked directly (`#gait`, `#log`, `#align`, `#cal`, `#imu`, `#fw`, `#help`)
+- Tabs: **Lab measurement** (strides and force per gait phase, video), **Long-term** (measurement in the device), **Alignment** (sensor axes on the shank), **Calibration** (force sensor, kg display, calibration points, coefficients), **IMU** (plots and 3D view), **System** (firmware update, outputs, raw data recording, LED, pairing code, app log) and **Manual**. Connection, battery and activity badges stay visible on every tab; the app log with a download button is on the System tab; the last tab is remembered and can be linked directly (`#gait`, `#log`, `#align`, `#cal`, `#imu`, `#fw`, `#help`)
 - **Phone layout:** on narrow screens the tabs become a bottom bar with icons and short labels, all cards stack in one column and the charts use the full width. Explanations are collapsed behind the ⓘ button in the card title; details are in the Manual tab
 - **Activity badge** in the header (Bluetooth): moving / still / rest mode and ⏺ while a long-term measurement runs; it flashes orange at every stride
 - **Long-term:** start/stop with pseudonym, side and threshold, markers, readout, analysis and CSV export (see [below](#long-term-measurement-tab))
-- **Outputs** (Firmware tab): switch raw data and stride records on and off
+- **Outputs** (System tab): switch raw data and stride records on and off
 - **Test conditions** (Lab measurement tab): pick a condition from the list before each test (*custom …* for another one) (presets follow the lab protocol: platform walking, standing, sit to stand, level ground, treadmill, stairs up/down). Each stride gets the condition that was set at its time, also strides loaded later from the device. The evaluation can be shown per condition, a table compares all conditions, and **Download CSV** saves one file per condition plus a summary (`feo_bedingungen_*.csv`). Raw recording and video carry the condition in the file name; in a running long-term measurement each change sets a marker.
 - **Video in sync** (Lab measurement tab): records a video with the phone or laptop camera together with the data recording. Device time is mapped to browser time from the incoming samples (minimum delay over a 20 s window), so the data CSV gets a `video_ms` column and a separate CSV lists the strides with their time in the video (`video_s`). The sensor LED flashes at every initial contact, which can be used to check the sync in the video. Needs Chrome on Android or desktop (Web Bluetooth + MediaRecorder); not available on the iPhone
 - **Steps:** cadence, stride and stance time, swing time, stance/swing ratio, swing peak and shank excursion, stride-time variability (CV within passes of at least 5 strides, first and last stride left out), heel force, heel contact and loading rate (also per condition and in the summary CSV); bar chart of the force per Rancho Los Amigos phase, mean force curve over the gait cycle with the phase limits, trend per stride, table and CSV export. On connecting, the app loads the strides the device recorded while no app was connected
 - Live plots of acceleration and angular rate including the magnitudes |a| and |ω|, window 5 / 10 / 30 s
 - **3D orientation** view (Madgwick filter, accelerometer + gyroscope) with a model of the board, drag with mouse or finger to rotate the camera, "Zero" to reset orientation and gyro offset
 - **Force sensor** voltage plot with current range, **battery voltage** with a rough charge estimate (LiPo, only meaningful without USB charging)
-- **CSV recording** and download (including U_FSR, range, U_bat and the entered reference weight)
+- **Record raw data** (System tab) as CSV (including U_FSR, range, U_bat and the entered reference weight); keeps running on other tabs
 - **Force–voltage calibration** points with CSV export
 - **Battery** level badge in the header (percentage estimate and voltage). The percentage is interpolated from a typical LiPo open-circuit discharge curve (3.3 V = 0 %, 3.7 V ≈ 25 %, 3.8 V ≈ 50 %, 4.0 V ≈ 78 %, 4.2 V = 100 %), so it reads high while charging and low under load
 - **Firmware update** over Bluetooth (MCUmgr/SMP)
@@ -295,7 +295,7 @@ nr,time_iso,ref_kg,u_fsr_mean_mv,u_fsr_sd_mv,u_fsr_min_mv,u_fsr_max_mv,n,avg_s,f
 1,2026-11-22T11:20:54.124Z,0.5,423.0,1.7,420,426,100,1,900,3870
 ```
 
-Points are kept in the browser (localStorage) until deleted. For loading/unloading curves (hysteresis), use a normal recording instead: every row then carries the currently entered reference weight.
+Points are kept in the browser (localStorage) until deleted. For loading/unloading curves (hysteresis), use *Record raw data* (System tab) instead: every row then carries the currently entered reference weight.
 
 ### Sensor Alignment
 

@@ -71,7 +71,8 @@
   .sm { color: var(--m); }
   .sx { color: var(--x); } .sy { color: var(--y); } .sz { color: var(--z); }
   #log { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); white-space: pre-wrap;
-         max-height: 5.5em; overflow: auto; }
+         max-height: 20em; overflow: auto; }
+  #logDl { padding: 2px 10px; font-size: 12px; font-weight: 400; }
   .warn { padding: 12px 16px; color: var(--x); }
   .spacer { flex: 1; }
   nav.tabs { display: flex; gap: 4px; padding: 0 16px; margin-bottom: 12px; border-bottom: 1px solid var(--grid); }
@@ -172,7 +173,6 @@
   <h1>FEO-Sensor live</h1>
   <button id="connect" class="primary" hidden></button>
   <button id="ble" class="primary"></button>
-  <button id="record" disabled></button>
   <label class="live"><span data-i18n="window"></span>
     <select id="window">
       <option value="5">5 s</option><option value="10" selected>10 s</option><option value="30">30 s</option>
@@ -188,11 +188,11 @@
 <div id="nows" class="warn" hidden data-i18n="nows"></div>
 <nav class="tabs">
   <button data-page="gait"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="tl" data-i18n="tabGait"></span><span class="ts" data-i18n="tabGaitS"></span></button>
-  <button data-page="log"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="tl" data-i18n="tabLog"></span><span class="ts" data-i18n="tabLogS"></span></button>
+  <button data-page="log"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M6 16h3l1.5-2.5 2 4.5 1.5-2H18"/></svg><span class="tl" data-i18n="tabLog"></span><span class="ts" data-i18n="tabLogS"></span></button>
   <button data-page="align"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg><span class="tl" data-i18n="tabAlign"></span><span class="ts" data-i18n="tabAlignS"></span></button>
   <button data-page="cal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h12l2 11H4z"/><circle cx="12" cy="5.5" r="2.5"/></svg><span class="tl" data-i18n="tabCal"></span><span class="ts" data-i18n="tabCalS"></span></button>
   <button data-page="imu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9l7 4M12 12l-7 4"/></svg><span class="tl" data-i18n="tabImu"></span><span class="ts" data-i18n="tabImuS"></span></button>
-  <button data-page="fw"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg><span class="tl" data-i18n="tabFw"></span><span class="ts" data-i18n="tabFwS"></span></button>
+  <button data-page="fw"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="tl" data-i18n="tabFw"></span><span class="ts" data-i18n="tabFwS"></span></button>
   <button data-page="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.9"/><path d="M12 17h.01"/></svg><span class="tl" data-i18n="tabHelp"></span><span class="ts" data-i18n="tabHelpS"></span></button>
 </nav>
 <div id="fwOld" class="warn" hidden data-i18n="fwOld"></div>
@@ -449,6 +449,8 @@
       <label><input type="checkbox" data-bit="0" disabled> <span data-i18n="outRaw"></span></label>
       <label><input type="checkbox" data-bit="1" disabled> <span data-i18n="outStep"></span></label>
     </div>
+    <div class="row"><button id="record" disabled></button></div>
+    <div class="hint info" data-i18n="recHint"></div>
   </div>
   <div class="card fw t-fw">
     <h2><span data-i18n="ledTitle"></span></h2>
@@ -470,9 +472,9 @@
   </div>
   <div class="card help t-help" data-lang="de">
     <h2>Handbuch</h2>
-    <nav class="toc"><a href="#h-start">Start</a> · <a href="#h-gait">Labormessung</a> · <a href="#h-log">Dauermessung</a> · <a href="#h-align">Ausrichtung</a> · <a href="#h-cal">Kalibrierung</a> · <a href="#h-imu">IMU</a> · <a href="#h-fw">Firmware</a></nav>
+    <nav class="toc"><a href="#h-start">Start</a> · <a href="#h-gait">Labormessung</a> · <a href="#h-log">Dauermessung</a> · <a href="#h-align">Ausrichtung</a> · <a href="#h-cal">Kalibrierung</a> · <a href="#h-imu">IMU</a> · <a href="#h-fw">System</a></nav>
     <h3 id="h-start">Start</h3>
-    <p>„Bluetooth verbinden“ oben wählt den Sensor (XIAO-FEO). Geht in Chrome oder Edge am PC/Mac und auf Android; auf dem iPhone kann Safari kein Bluetooth. Am Rechner geht auch USB-Seriell. Die App läuft auch offline und lässt sich installieren. „Aufnahme starten“ speichert die Rohdaten (alle Kanäle) als CSV; „Fenster“ und „Pause“ gelten für die Live-Diagramme. Die Plaketten oben zeigen Akku und Aktivität (● Bewegung, ○ ruhig, ☾ Ruhemodus; ⏺ = Dauermessung läuft).</p>
+    <p>„Bluetooth verbinden“ oben wählt den Sensor (XIAO-FEO). Geht in Chrome oder Edge am PC/Mac und auf Android; auf dem iPhone kann Safari kein Bluetooth. Am Rechner geht auch USB-Seriell. Die App läuft auch offline und lässt sich installieren. „Fenster“ und „Pause“ gelten für die Live-Diagramme. Die Plaketten oben zeigen Akku und Aktivität (● Bewegung, ○ ruhig, ☾ Ruhemodus; ⏺ = Dauermessung läuft).</p>
     <p>Das <b>ⓘ</b> neben einer Überschrift blendet eine kurze Erklärung ein.</p>
     <h3 id="h-gait">Labormessung</h3>
     <p>Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Alle Werte beziehen sich auf Doppelschritte des Beins mit Sensor. Kraftwerte sind Mittel über die gewählten Doppelschritte („Mittel über die letzten“).</p>
@@ -491,17 +493,19 @@
     <p>Kennlinie R_FSR = RS + K·kg^−N. Gewicht auflegen, ruhig halten, Gewicht eintragen und „Messpunkt übernehmen“; mindestens 3 Punkte über 0 kg und am besten einer bei 0 kg. „Aus Messpunkten fitten“, dann „Ins Gerät schreiben“. Die Punkte bleiben im Browser; eine laufende Aufnahme enthält zusätzlich das eingetragene Referenzgewicht in jeder Zeile. „Nullen“ übernimmt den aktuellen Ruhewert als V_ref (Sensor dabei unbelastet); beim Einschalten nullt das Gerät selbst.</p>
     <h3 id="h-imu">IMU</h3>
     <p>Beschleunigung, Drehrate und Lage live. Die 3D-Ansicht lässt sich mit Maus oder Finger drehen; Yaw driftet langsam (kein Magnetometer). Zum „Nullen“ das Board ruhig hinlegen, USB-Buchse von dir weg: das Modell steht dann so wie vor dir.</p>
-    <h3 id="h-fw">Firmware</h3>
+    <h3 id="h-fw">System</h3>
     <p><b>Update</b> per Bluetooth: „Neueste Version installieren“ oder eine *_update.bin wählen. Hängt die Übertragung, verbindet die App neu und setzt fort. Notfall: *_factory.hex per USB flashen.</p>
+    <p><b>Rohdaten aufnehmen:</b> speichert die Live-Rohdaten (Zeit, Beschleunigung, Drehrate, FSR-Spannung und Bereich, Akku, dazu Referenzgewicht, kg und ggf. Videozeit) bis zum Stoppen als CSV. Läuft auch auf anderen Seiten weiter; die Statuszeile oben zählt mit. „Video + Aufnahme starten“ startet dieselbe Aufnahme.</p>
+    <p><b>Protokoll:</b> Meldungen der App (Verbindung, Updates, Fehler). „Herunterladen“ speichert es mit Zeitstempeln als Textdatei, z. B. für die Fehlersuche.</p>
     <p><b>Übertragungen:</b> Rohdaten (IMU und Kraft, für die Live-Diagramme, Kalibrierung und Aufnahme) und Schritte lassen sich einzeln abschalten, um Akku zu sparen. Akku und Aktivität werden immer übertragen. Die Einstellung wird im Sensor gespeichert.</p>
     <p><b>LED:</b> leuchtet bei Bewegung gedimmt und blitzt bei jedem Fersenauftritt hell. Helligkeit in % (PWM), beides einzeln abschaltbar. Hell blitzen kostet beim Gehen rund 0,5 mA, gedimmt deutlich weniger.</p>
     <p><b>Kopplungscode:</b> Mit Code verbindet sich nur, wer ihn kennt. Beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt; das gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.</p>
   </div>
   <div class="card help t-help" data-lang="en">
     <h2>Manual</h2>
-    <nav class="toc"><a href="#h-start-en">Start</a> · <a href="#h-gait-en">Lab</a> · <a href="#h-log-en">Long-term</a> · <a href="#h-align-en">Alignment</a> · <a href="#h-cal-en">Calibration</a> · <a href="#h-imu-en">IMU</a> · <a href="#h-fw-en">Firmware</a></nav>
+    <nav class="toc"><a href="#h-start-en">Start</a> · <a href="#h-gait-en">Lab</a> · <a href="#h-log-en">Long-term</a> · <a href="#h-align-en">Alignment</a> · <a href="#h-cal-en">Calibration</a> · <a href="#h-imu-en">IMU</a> · <a href="#h-fw-en">System</a></nav>
     <h3 id="h-start-en">Start</h3>
-    <p>“Connect Bluetooth” at the top picks the sensor (XIAO-FEO). Works in Chrome or Edge on desktop and Android; on the iPhone, Safari has no Bluetooth. On a computer, USB serial works too. The app also runs offline and can be installed. “Start recording” saves the raw data (all channels) as CSV; “Window” and “Pause” apply to the live charts. The badges at the top show battery and activity (● moving, ○ still, ☾ rest mode; ⏺ = long-term measurement running).</p>
+    <p>“Connect Bluetooth” at the top picks the sensor (XIAO-FEO). Works in Chrome or Edge on desktop and Android; on the iPhone, Safari has no Bluetooth. On a computer, USB serial works too. The app also runs offline and can be installed. “Window” and “Pause” apply to the live charts. The badges at the top show battery and activity (● moving, ○ still, ☾ rest mode; ⏺ = long-term measurement running).</p>
     <p>The <b>ⓘ</b> next to a heading shows a short explanation.</p>
     <h3 id="h-gait-en">Lab measurement</h3>
     <p>The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. All values refer to strides of the sensor leg. Force values are means over the selected strides (“Mean over the last”).</p>
@@ -520,13 +524,18 @@
     <p>Characteristic R_FSR = RS + K·kg^−N. Place the weight, keep still, enter the weight and press “Add point”; at least 3 points above 0 kg, ideally one at 0 kg. “Fit from points”, then “Write to device”. Points stay in the browser; a running recording also contains the entered reference weight in every row. “Zero” takes the current resting value as V_ref (sensor unloaded); the device zeroes itself when switched on.</p>
     <h3 id="h-imu-en">IMU</h3>
     <p>Live acceleration, angular rate and orientation. Drag the 3D view with mouse or finger to rotate it; yaw drifts slowly (no magnetometer). To “Zero”, place the board still with the USB socket pointing away from you: the model then matches the board in front of you.</p>
-    <h3 id="h-fw-en">Firmware</h3>
+    <h3 id="h-fw-en">System</h3>
     <p><b>Update</b> via Bluetooth: “Install latest version” or pick an *_update.bin. If the transfer stalls, the app reconnects and resumes. Emergency: flash *_factory.hex via USB.</p>
+    <p><b>Record raw data:</b> saves the live raw data (time, acceleration, angular rate, FSR voltage and range, battery, plus reference weight, kg and video time if any) as CSV until stopped. It keeps running on other tabs; the status line at the top counts along. “Start video + recording” starts the same recording.</p>
+    <p><b>Log:</b> app messages (connection, updates, errors). “Download” saves it with time stamps as a text file, e.g. for troubleshooting.</p>
     <p><b>Outputs:</b> raw data (IMU and force, for the live charts, calibration and recording) and strides can be switched off separately to save battery. Battery and activity are always sent. The setting is stored in the sensor.</p>
     <p><b>LED:</b> dimly on while moving and a bright flash at every initial contact. Brightness in % (PWM), each can be switched off. Bright flashes cost about 0.5 mA while walking, the dim light much less.</p>
     <p><b>Pairing code:</b> with a code, only those who know it can connect. On the first connect the system asks once for the code (Android dialog, a notification on the Mac); after that the device stays paired. This also covers the firmware update. Code forgotten: hold the XIAO button for 5 s while switching on (LED blinks); this clears code and pairings. Then remove the board in the Bluetooth settings of the phone/computer.</p>
   </div>
-  <div class="card logc"><div id="log"></div></div>
+  <div class="card fw t-fw">
+    <h2><span data-i18n="logTitle"></span> <button id="logDl" data-i18n="logDl"></button></h2>
+    <div id="log"></div>
+  </div>
 </main>
 <footer><span class="appver">FEO-Sensor App <b id="appVer"></b> · </span><span data-i18n="project"></span> <a href="https://horizon-smile.eu/" target="_blank" rel="noopener">SmILE – Smart Implants for Life Enrichment</a>.
   <div class="logos"><a href="https://horizon-smile.eu/" target="_blank" rel="noopener"><img src="assets/Smile-logo.svg" alt="SmILE"></a>
@@ -546,7 +555,7 @@ let rateCount = 0, rateT0 = performance.now(), rateHz = 0;
 // ---------- Sprache (DE / EN) ----------
 const TEXT = {
   de: {
-    tabGaitS: "Labor", tabLogS: "Dauer", tabAlignS: "Achse", tabCalS: "Kalib.", tabImuS: "IMU", tabFwS: "Firmware", tabHelp: "Handbuch", tabHelpS: "Hilfe", infoT: "Erklärung ein-/ausblenden",
+    tabGaitS: "Labor", tabLogS: "Langzeit", tabAlignS: "Achse", tabCalS: "Kalib.", tabImuS: "IMU", tabFwS: "System", tabHelp: "Handbuch", tabHelpS: "Hilfe", infoT: "Erklärung ein-/ausblenden",
     window: "Fenster", nows: "Dieser Browser kann weder auf Bluetooth noch auf USB-Seriell zugreifen. Bitte Chrome oder Edge verwenden (am PC/Mac oder auf Android), die Seite über https öffnen, oder in Brave Web Bluetooth aktivieren.",
     acc: "Beschleunigung (g)", gyr: "Drehrate (°/s)", orient: "Lage des Boards",
     flip: "Ansicht 180°", flipT: "Kamera auf die andere Seite stellen",
@@ -555,7 +564,7 @@ const TEXT = {
     hint2: "„Nullen“: Board ruhig hinlegen, USB-Buchse von dir weg.",
     project: "Gefördert von der Europäischen Union im Programm Horizon Europe (Grant Agreement Nr. 101136376), Projekt",
     usbOn: "USB verbinden", usbOff: "USB trennen", bleOn: "Bluetooth verbinden", bleOff: "Bluetooth trennen",
-    recOn: "Aufnahme starten", recOff: "Aufnahme stoppen", pause: "Pause", resume: "Weiter",
+    recOn: "Rohdaten aufnehmen", recOff: "Rohdaten-Aufnahme stoppen", logTitle: "Protokoll", logDl: "Herunterladen", recHint: "Speichert die Live-Rohdaten (IMU, Kraft, Akku) bis zum Stoppen als CSV, z. B. für Kalibrierung oder Fehlersuche.", pause: "Pause", resume: "Weiter",
     stIdle: "nicht verbunden", stWait: "verbunden, warte auf Daten …", stBle: "verbinde per Bluetooth …",
     stRec: n => ` · Aufnahme: ${n} Messungen`,
     logBleOff: "# Bluetooth getrennt", logBleOn: n => "# Bluetooth verbunden: " + n, logBleErr: m => "Bluetooth-Fehler: " + m,
@@ -577,7 +586,7 @@ const TEXT = {
     fitNeed: "Für den Fit mindestens 3 Messpunkte mit Gewicht > 0 (und am besten einen bei 0 kg) aufnehmen.",
     fitRes: (e, n) => `Fit aus ${n} Punkten: mittlere Abweichung ${e} %. Mit „Ins Gerät schreiben“ übernehmen.`,
     calSaved: "# Kalibrierung im Gerät gespeichert", calErr: m => "Kalibrierung schreiben fehlgeschlagen: " + m,
-    tabImu: "IMU", tabCal: "Kalibrierung", tabFw: "Firmware",
+    tabImu: "IMU", tabCal: "Kalibrierung", tabFw: "System",
     appVerL: "Version dieser App:", staleT: "Während des Updates nicht aktuell",
     fwWait: "Übertragen. Board startet neu und installiert das Update, verbinde danach automatisch …",
     fwDone: v => `Update fertig, Firmware ${v} läuft.`, fwRolled: (v, w) => `Board läuft mit ${w} statt ${v}: Das Update wurde nicht übernommen (zurückgerollt?).`,
@@ -685,7 +694,7 @@ const TEXT = {
     pkWait: "Kopplung: Code im Systemdialog eingeben …", pkFail: "Nicht gekoppelt (Code falsch oder Dialog abgebrochen). Ggf. das Board in den Bluetooth-Einstellungen entfernen und neu verbinden.",
     fwRestart: "Board wird vor dem Update neu gestartet …", fwNoReconnect: "Board nicht wieder verbunden, bitte neu verbinden und das Update erneut starten (es geht dort weiter, wo es aufgehört hat)",
     fwResume: p => `Update hängt bei ${p} %, verbinde neu und setze fort …`,
-    fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „Firmware“ die neueste Version installieren (ab v0.4.0).",
+    fwOld: "Die Firmware auf dem Board ist zu alt für Übertragungs-Schalter, Aktivitätsanzeige und Dauermessung. Bitte unter „System“ die neueste Version installieren (ab v0.4.0).",
     outs: "Übertragungen (Bluetooth)", outRaw: "Rohdaten (BLE)", outStep: "Schritte (BLE)", outSerCsv: "Seriell CSV", outSerStep: "Seriell Schritte",
     actMove: "● Bewegung", actStill: "○ ruhig", actRest: "☾ Ruhemodus", actStrides: "DS",
     vTitle: "Video (zeitsynchron)", vCamOn: "Kamera an", vCamOff: "Kamera aus", vFlipB: "Kamera wechseln",
@@ -696,7 +705,7 @@ const TEXT = {
     vSaved: (f, d, n) => `# Video ${f} gespeichert (${d} s, ${n} Doppelschritte)`,
   },
   en: {
-    tabGaitS: "Lab", tabLogS: "Log", tabAlignS: "Axis", tabCalS: "Calib.", tabImuS: "IMU", tabFwS: "Firmware", tabHelp: "Manual", tabHelpS: "Help", infoT: "Show/hide explanation",
+    tabGaitS: "Lab", tabLogS: "Long-term", tabAlignS: "Axis", tabCalS: "Calib.", tabImuS: "IMU", tabFwS: "System", tabHelp: "Manual", tabHelpS: "Help", infoT: "Show/hide explanation",
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
     acc: "Acceleration (g)", gyr: "Angular rate (°/s)", orient: "Board orientation",
     flip: "View 180°", flipT: "Move the camera to the other side",
@@ -705,7 +714,7 @@ const TEXT = {
     hint2: "“Zero”: place the board still, USB socket pointing away from you.",
     project: "Funded by the European Union's Horizon Europe programme (grant agreement No. 101136376), project",
     usbOn: "Connect USB", usbOff: "Disconnect USB", bleOn: "Connect Bluetooth", bleOff: "Disconnect Bluetooth",
-    recOn: "Start recording", recOff: "Stop recording", pause: "Pause", resume: "Resume",
+    recOn: "Record raw data", recOff: "Stop raw data recording", logTitle: "Log", logDl: "Download", recHint: "Saves the live raw data (IMU, force, battery) as CSV until stopped, e.g. for calibration or troubleshooting.", pause: "Pause", resume: "Resume",
     stIdle: "not connected", stWait: "connected, waiting for data …", stBle: "connecting via Bluetooth …",
     stRec: n => ` · Recording: ${n} samples`,
     logBleOff: "# Bluetooth disconnected", logBleOn: n => "# Bluetooth connected: " + n, logBleErr: m => "Bluetooth error: " + m,
@@ -727,7 +736,7 @@ const TEXT = {
     fitNeed: "The fit needs at least 3 points with weight > 0 (ideally one at 0 kg as well).",
     fitRes: (e, n) => `Fit from ${n} points: mean deviation ${e} %. Use “Write to device” to keep it.`,
     calSaved: "# Calibration saved in the device", calErr: m => "Writing calibration failed: " + m,
-    tabImu: "IMU", tabCal: "Calibration", tabFw: "Firmware",
+    tabImu: "IMU", tabCal: "Calibration", tabFw: "System",
     appVerL: "Version of this app:", staleT: "Not current during the update",
     fwWait: "Transferred. The board restarts and installs the update, reconnecting automatically …",
     fwDone: v => `Update done, firmware ${v} is running.`, fwRolled: (v, w) => `The board runs ${w} instead of ${v}: the update was not applied (rolled back?).`,
@@ -835,7 +844,7 @@ const TEXT = {
     pkWait: "Pairing: enter the code in the system dialog …", pkFail: "Not paired (wrong code or dialog cancelled). If needed, remove the board in the Bluetooth settings and connect again.",
     fwRestart: "Restarting the board before the update …", fwNoReconnect: "board not reconnected; connect again and start the update again (it continues where it stopped)",
     fwResume: p => `Update stuck at ${p} %, reconnecting and resuming …`,
-    fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “Firmware” (v0.4.0 or later).",
+    fwOld: "The firmware on the board is too old for output switches, activity badge and long-term measurement. Please install the latest version under “System” (v0.4.0 or later).",
     outs: "Outputs (Bluetooth)", outRaw: "Raw data (BLE)", outStep: "Strides (BLE)", outSerCsv: "Serial CSV", outSerStep: "Serial strides",
     actMove: "● moving", actStill: "○ still", actRest: "☾ rest mode", actStrides: "strides",
     vTitle: "Video (synchronised)", vCamOn: "Camera on", vCamOff: "Camera off", vFlipB: "Switch camera",
@@ -952,13 +961,18 @@ function handlePacket(dv) {
   }
 }
 
+// app log: the System tab shows the last 200 lines, "Download" saves all (up to 5000) with time stamps
+const logLines = [];
 function log(msg) {
+  logLines.push(new Date().toISOString() + " " + msg);
+  if (logLines.length > 5000) logLines.splice(0, logLines.length - 5000);
   const el = $("log");
   el.textContent += msg + "\n";
   const lines = el.textContent.split("\n");
-  if (lines.length > 30) el.textContent = lines.slice(-30).join("\n");
+  if (lines.length > 200) el.textContent = lines.slice(-200).join("\n");
   el.scrollTop = el.scrollHeight;
 }
+$("logDl").onclick = () => download(logLines.join("\n") + "\n", `feo_log_${fileTs()}.txt`);
 // Status: Schlüssel aus TEXT (bleibt beim Sprachwechsel gültig) oder fertiger Text
 function setStatus(s) { statusKey = TEXT[lang][s] ? s : null; $("status").textContent = statusKey ? T(s) : s; }
 
