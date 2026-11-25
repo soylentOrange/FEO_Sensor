@@ -124,7 +124,9 @@
   footer a { color: var(--z); }
   .card { min-width: 0; }
   .tbl { overflow: auto; }
-  nav.tabs svg, nav.tabs .ts { display: none; }
+  nav.tabs button { display: inline-flex; align-items: center; gap: 6px; }
+  nav.tabs svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8;
+                 stroke-linecap: round; stroke-linejoin: round; }
   nav.tabs button[data-page=help] { margin-left: auto; }
   body[data-page=gait] .live, body[data-page=log] .live, body[data-page=fw] .live, body[data-page=help] .live { display: none; }
   /* explanations: collapsed, the (i) button in the card title shows them */
@@ -161,10 +163,8 @@
                      margin: 0; padding: 7px 0 6px; border: 0; border-radius: 0; background: none; font-size: 10.5px; }
     nav.tabs button.on { color: var(--z); }
     nav.tabs button[data-page=help] { margin-left: 0; }
-    nav.tabs svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8;
-                   stroke-linecap: round; stroke-linejoin: round; }
-    nav.tabs .tl { display: none; }
-    nav.tabs .ts { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    nav.tabs svg { width: 22px; height: 22px; }
+    nav.tabs span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
 </style>
 </head>
@@ -187,13 +187,13 @@
 </header>
 <div id="nows" class="warn" hidden data-i18n="nows"></div>
 <nav class="tabs">
-  <button data-page="gait"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span class="tl" data-i18n="tabGait"></span><span class="ts" data-i18n="tabGaitS"></span></button>
-  <button data-page="log"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M6 16h3l1.5-2.5 2 4.5 1.5-2H18"/></svg><span class="tl" data-i18n="tabLog"></span><span class="ts" data-i18n="tabLogS"></span></button>
-  <button data-page="align"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg><span class="tl" data-i18n="tabAlign"></span><span class="ts" data-i18n="tabAlignS"></span></button>
-  <button data-page="cal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h12l2 11H4z"/><circle cx="12" cy="5.5" r="2.5"/></svg><span class="tl" data-i18n="tabCal"></span><span class="ts" data-i18n="tabCalS"></span></button>
-  <button data-page="imu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9l7 4M12 12l-7 4"/></svg><span class="tl" data-i18n="tabImu"></span><span class="ts" data-i18n="tabImuS"></span></button>
-  <button data-page="fw"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="tl" data-i18n="tabFw"></span><span class="ts" data-i18n="tabFwS"></span></button>
-  <button data-page="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.9"/><path d="M12 17h.01"/></svg><span class="tl" data-i18n="tabHelp"></span><span class="ts" data-i18n="tabHelpS"></span></button>
+  <button data-page="gait"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span data-i18n="tabGait"></span></button>
+  <button data-page="log"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M6 16h3l1.5-2.5 2 4.5 1.5-2H18"/></svg><span data-i18n="tabLog"></span></button>
+  <button data-page="align"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg><span data-i18n="tabAlign"></span></button>
+  <button data-page="cal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h12l2 11H4z"/><circle cx="12" cy="5.5" r="2.5"/></svg><span data-i18n="tabCal"></span></button>
+  <button data-page="imu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9l7 4M12 12l-7 4"/></svg><span data-i18n="tabImu"></span></button>
+  <button data-page="fw"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span data-i18n="tabFw"></span></button>
+  <button data-page="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.9"/><path d="M12 17h.01"/></svg><span data-i18n="tabHelp"></span></button>
 </nav>
 <div id="fwOld" class="warn" hidden data-i18n="fwOld"></div>
 <main>
@@ -471,25 +471,25 @@
     <div class="hint info" data-i18n="pkHint"></div>
   </div>
   <div class="card help t-help" data-lang="de">
-    <h2>Handbuch</h2>
-    <nav class="toc"><a href="#h-start">Start</a> · <a href="#h-gait">Labormessung</a> · <a href="#h-log">Dauermessung</a> · <a href="#h-align">Ausrichtung</a> · <a href="#h-cal">Kalibrierung</a> · <a href="#h-imu">IMU</a> · <a href="#h-fw">System</a></nav>
+    <h2>Hilfe</h2>
+    <nav class="toc"><a href="#h-start">Start</a> · <a href="#h-gait">Labor</a> · <a href="#h-log">Langzeit</a> · <a href="#h-align">Achse</a> · <a href="#h-cal">Kraft</a> · <a href="#h-imu">IMU</a> · <a href="#h-fw">System</a></nav>
     <h3 id="h-start">Start</h3>
     <p>„Bluetooth verbinden“ oben wählt den Sensor (XIAO-FEO). Geht in Chrome oder Edge am PC/Mac und auf Android; auf dem iPhone kann Safari kein Bluetooth. Am Rechner geht auch USB-Seriell. Die App läuft auch offline und lässt sich installieren. „Fenster“ und „Pause“ gelten für die Live-Diagramme. Die Plaketten oben zeigen Akku und Aktivität (● Bewegung, ○ ruhig, ☾ Ruhemodus; ⏺ = Dauermessung läuft).</p>
     <p>Das <b>ⓘ</b> neben einer Überschrift blendet eine kurze Erklärung ein.</p>
-    <h3 id="h-gait">Labormessung</h3>
+    <h3 id="h-gait">Labor</h3>
     <p>Das Gerät erkennt die Schritte selbst (auch ohne App) und hält die letzten 1024 im Speicher; beim Verbinden lädt die App die fehlenden nach. Alle Werte beziehen sich auf Doppelschritte des Beins mit Sensor. Kraftwerte sind Mittel über die gewählten Doppelschritte („Mittel über die letzten“).</p>
     <p><b>Bedingung:</b> vor jedem Test aus der Liste wählen („eigene …“ für eine andere). Jeder Schritt bekommt die Bedingung, die zu seiner Zeit galt. „CSV herunterladen“ speichert je Bedingung eine Datei plus eine Übersicht; Aufnahme und Video tragen die Bedingung im Dateinamen. Läuft eine Dauermessung, setzt jeder Wechsel dort einen Marker.</p>
     <p><b>Kraft je Gangphase</b> (Rancho Los Amigos): Balken = mittlere Kraft in der Phase (± Standardabweichung), Punkt = mittleres Maximum. Die Phasengrenzen stammen aus Fersenauftritt und Zehenablösung (TO) des Sensorbeins; für das andere Bein wird ein symmetrischer Gang angenommen. Liegt die Standphase unter 50 %, gibt es keine Doppelunterstützung: LR und PSw entfallen (–). <b>Verlauf</b>: größte Kraft je Doppelschritt (orange) und Loading Response (blau).</p>
     <p><b>Video:</b> nimmt mit der Handy- oder Laptopkamera ein Video auf und startet gleichzeitig die Datenaufnahme. Danach werden das Video, die Messdaten-CSV (Spalte video_ms) und die Doppelschritte mit ihrer Zeit im Video (video_s) heruntergeladen. Läuft eine Dauermessung, setzt der Start dort eine Markierung. Zur Kontrolle den Sensor mitfilmen: die LED blitzt bei jedem Fersenauftritt.</p>
-    <h3 id="h-log">Dauermessung</h3>
+    <h3 id="h-log">Langzeit (Dauermessung)</h3>
     <p>Das Gerät speichert jeden Doppelschritt (Zeit, Dauer, Standphase, Fersenspitze, Mittel, Kraftstoß), jede Minute (Doppelschritte, Bewegung, Fersenlast im Stehen, Akku) und Ereignisse, insgesamt rund eine Woche. Die Uhrzeit stellt die App bei jedem Verbinden. Im Ruhemodus misst das Gerät die Fersenlast alle 5 s. <b>Ein Firmware-Update löscht den Speicher, also vorher auslesen.</b></p>
     <p><b>Auslesen:</b> „Neue Daten auslesen“ holt nur neue Einträge. Die Daten bleiben im Browser und lassen sich auch ohne Gerät auswerten. Die Rohdaten (.bin) enthalten alles, was das Gerät gespeichert hat, und lassen sich später mit „Rohdaten öffnen“ wieder laden.</p>
     <p><b>Auswertung:</b> Die Schwelle für die Auswertung kann von der im Gerät abweichen; „Stehen mit Last“ zählt aber immer mit der Schwelle, die beim Start eingestellt war. „Zeit in Bewegung“ ist die Summe der Sekunden, in denen sich der Unterschenkel bewegt hat (Drehrate über 20 °/s oder Beschleunigungsänderung über 0,1 g), also Gehen und jede andere Beinbewegung.</p>
     <p><b>Gangkennwerte:</b> Gehbout = mindestens 2 Doppelschritte mit Pausen unter 3 s (Mobilise-D). Kadenz in Schritten/min (= 2 × Doppelschritte). Spitzen-Kadenz: beste Minute bzw. Mittel der 30 besten Minuten (nicht zusammenhängend). Variabilität: CV innerhalb von Bouts mit mindestens 20 Doppelschritten, ohne die ersten und letzten 2. Körperlage aus Neigung des Unterschenkels und Fersenlast, nur in Ruhe: „aufrecht ohne Fersenlast“ ist Sitzen oder Stehen mit entlasteter Ferse (nicht unterscheidbar), „Liegen / Bein hoch“ heißt Unterschenkel mehr als 60° geneigt. Fersenkontakt, Belastungsrate, Schwungwerte und Körperlage erst ab Firmware v0.8.0 (sonst –). Tage nach Ortszeit; Einträge ohne Uhrzeit zählen nur bei „gesamt“.</p>
     <p><b>Fersenlast je Gehbout:</b> alle Bouts mit mindestens der gewählten Zahl Doppelschritte; erste Zeile: alle diese Bouts zusammen (je Doppelschritt gewichtet). F̅ Spitze und Median der Fersenspitze in kg; „entlastet“ = Anteil der Doppelschritte mit Fersenspitze bis zur Schwelle; Kraftstoß je Doppelschritt in kg·s; Fersenkontakt in % der Standphase. Die CSV „Gehbouts“ enthält alle Bouts mit denselben Werten. Ruhe/Aktiv-Wechsel stehen nicht in der Ereignisliste, nur in der CSV.</p>
-    <h3 id="h-align">Ausrichtung</h3>
+    <h3 id="h-align">Achse (Ausrichtung des Sensors)</h3>
     <p>Die Schritterkennung braucht die Drehrate des Unterschenkels in der Sagittalebene (positiv = Fuß schwingt nach vorn). Weil der Sensor nicht genau ausgerichtet sitzt, bestimmt die App die Drehachse aus einer Bewegung (Hauptachse der Drehrate) und die Längsachse aus der Schwerkraft. Ohne Kalibrierung schätzt die Firmware die Achse beim Gehen selbst. In der Kontrollanzeige zeigt Gehen große positive Spitzen in der Schwungphase und kurze negative Ausschläge bei Zehenablösung und Fersenauftritt.</p>
-    <h3 id="h-cal">Kalibrierung</h3>
+    <h3 id="h-cal">Kraft (Kraftsensor und Kalibrierung)</h3>
     <p>Kennlinie R_FSR = RS + K·kg^−N. Gewicht auflegen, ruhig halten, Gewicht eintragen und „Messpunkt übernehmen“; mindestens 3 Punkte über 0 kg und am besten einer bei 0 kg. „Aus Messpunkten fitten“, dann „Ins Gerät schreiben“. Die Punkte bleiben im Browser; eine laufende Aufnahme enthält zusätzlich das eingetragene Referenzgewicht in jeder Zeile. „Nullen“ übernimmt den aktuellen Ruhewert als V_ref (Sensor dabei unbelastet); beim Einschalten nullt das Gerät selbst.</p>
     <h3 id="h-imu">IMU</h3>
     <p>Beschleunigung, Drehrate und Lage live. Die 3D-Ansicht lässt sich mit Maus oder Finger drehen; Yaw driftet langsam (kein Magnetometer). Zum „Nullen“ das Board ruhig hinlegen, USB-Buchse von dir weg: das Modell steht dann so wie vor dir.</p>
@@ -502,25 +502,25 @@
     <p><b>Kopplungscode:</b> Mit Code verbindet sich nur, wer ihn kennt. Beim ersten Verbinden fragt das System (Android-Dialog, am Mac eine Mitteilung) einmal nach dem Code, danach bleibt das Gerät gekoppelt; das gilt auch für das Firmware-Update. Code vergessen: Taste am XIAO beim Einschalten 5 s halten (LED blinkt), das löscht Code und Kopplungen; danach das Board in den Bluetooth-Einstellungen von Handy/Rechner entfernen.</p>
   </div>
   <div class="card help t-help" data-lang="en">
-    <h2>Manual</h2>
-    <nav class="toc"><a href="#h-start-en">Start</a> · <a href="#h-gait-en">Lab</a> · <a href="#h-log-en">Long-term</a> · <a href="#h-align-en">Alignment</a> · <a href="#h-cal-en">Calibration</a> · <a href="#h-imu-en">IMU</a> · <a href="#h-fw-en">System</a></nav>
+    <h2>Help</h2>
+    <nav class="toc"><a href="#h-start-en">Start</a> · <a href="#h-gait-en">Lab</a> · <a href="#h-log-en">Long-term</a> · <a href="#h-align-en">Axis</a> · <a href="#h-cal-en">Force</a> · <a href="#h-imu-en">IMU</a> · <a href="#h-fw-en">System</a></nav>
     <h3 id="h-start-en">Start</h3>
     <p>“Connect Bluetooth” at the top picks the sensor (XIAO-FEO). Works in Chrome or Edge on desktop and Android; on the iPhone, Safari has no Bluetooth. On a computer, USB serial works too. The app also runs offline and can be installed. “Window” and “Pause” apply to the live charts. The badges at the top show battery and activity (● moving, ○ still, ☾ rest mode; ⏺ = long-term measurement running).</p>
     <p>The <b>ⓘ</b> next to a heading shows a short explanation.</p>
-    <h3 id="h-gait-en">Lab measurement</h3>
+    <h3 id="h-gait-en">Lab</h3>
     <p>The device detects steps by itself (also without the app) and keeps the last 1024 in memory; on connecting, the app loads the missing ones. All values refer to strides of the sensor leg. Force values are means over the selected strides (“Mean over the last”).</p>
     <p><b>Condition:</b> pick one from the list before each test (“custom …” for another). Every stride gets the condition that was set at its time. “Download CSV” saves one file per condition plus a summary; recording and video carry the condition in the file name. If a long-term measurement runs, each change sets a marker there.</p>
     <p><b>Force per gait phase</b> (Rancho Los Amigos): bar = mean force in the phase (± standard deviation), dot = mean maximum. Phase limits come from initial contact and toe-off (TO) of the sensor leg; a symmetric gait is assumed for the other leg. With a stance below 50 % there is no double support, so LR and PSw are left out (–). <b>Trend</b>: peak force per stride (orange) and loading response (blue).</p>
     <p><b>Video:</b> records a video with the phone or laptop camera and starts the data recording at the same time. Afterwards the video, the data CSV (column video_ms) and the strides with their time in the video (video_s) are downloaded. If a long-term measurement runs, the start sets a marker there. To check the sync, keep the sensor in view: the LED flashes at every initial contact.</p>
-    <h3 id="h-log-en">Long-term measurement</h3>
+    <h3 id="h-log-en">Long-term</h3>
     <p>The device stores every stride (time, duration, stance, heel peak, mean, impulse), every minute (strides, movement, heel load while standing, battery) and events, about one week in total. The app sets the clock on every connect. In rest mode the device samples the heel load every 5 s. <b>A firmware update erases the memory, so read it out first.</b></p>
     <p><b>Read-out:</b> “Read new data” fetches only new entries. The data stays in the browser and can be analysed without the device. The raw data (.bin) contains everything the device stored and can be loaded again later with “Open raw data”.</p>
     <p><b>Analysis:</b> the analysis threshold may differ from the one in the device; “standing with load” always uses the threshold set at start. “Time moving” is the sum of the seconds in which the shank moved (angular rate above 20 °/s or acceleration change above 0.1 g): walking and any other leg movement.</p>
     <p><b>Gait measures:</b> walking bout = at least 2 strides with pauses below 3 s (Mobilise-D). Cadence in steps/min (= 2 × strides). Peak cadence: best minute or mean of the 30 best minutes (not necessarily consecutive). Variability: CV within bouts of at least 20 strides, without the first and last 2. Posture from shank tilt and heel load, at rest only: “upright without heel load” is sitting or standing with the heel unloaded (not distinguishable), “lying / leg up” means the shank is tilted more than 60°. Heel contact, loading rate, swing values and posture need firmware v0.8.0 or later (otherwise –). Days in local time; entries without wall-clock time only count in “total”.</p>
     <p><b>Heel load per walking bout:</b> all bouts with at least the chosen number of strides; first row: all these bouts together (weighted per stride). Mean and median heel peak in kg; “unloaded” = share of strides with a heel peak up to the threshold; impulse per stride in kg·s; heel contact in % of stance. The “Walking bouts” CSV has all bouts with the same values. Rest/wake changes are not in the event list, only in the CSV.</p>
-    <h3 id="h-align-en">Alignment</h3>
+    <h3 id="h-align-en">Axis (sensor alignment)</h3>
     <p>Step detection uses the shank's angular rate in the sagittal plane (positive = foot swings forward). Because the sensor is not mounted exactly aligned, the app determines the rotation axis from a movement (principal axis of the angular rate) and the long axis from gravity. Without calibration the firmware estimates the axis itself while walking. In the check chart, walking shows large positive peaks in swing and short negative dips at toe-off and initial contact.</p>
-    <h3 id="h-cal-en">Calibration</h3>
+    <h3 id="h-cal-en">Force (force sensor and calibration)</h3>
     <p>Characteristic R_FSR = RS + K·kg^−N. Place the weight, keep still, enter the weight and press “Add point”; at least 3 points above 0 kg, ideally one at 0 kg. “Fit from points”, then “Write to device”. Points stay in the browser; a running recording also contains the entered reference weight in every row. “Zero” takes the current resting value as V_ref (sensor unloaded); the device zeroes itself when switched on.</p>
     <h3 id="h-imu-en">IMU</h3>
     <p>Live acceleration, angular rate and orientation. Drag the 3D view with mouse or finger to rotate it; yaw drifts slowly (no magnetometer). To “Zero”, place the board still with the USB socket pointing away from you: the model then matches the board in front of you.</p>
@@ -555,7 +555,7 @@ let rateCount = 0, rateT0 = performance.now(), rateHz = 0;
 // ---------- Sprache (DE / EN) ----------
 const TEXT = {
   de: {
-    tabGaitS: "Labor", tabLogS: "Langzeit", tabAlignS: "Achse", tabCalS: "Kalib.", tabImuS: "IMU", tabFwS: "System", tabHelp: "Handbuch", tabHelpS: "Hilfe", infoT: "Erklärung ein-/ausblenden",
+    tabGait: "Labor", tabLog: "Langzeit", tabAlign: "Achse", tabCal: "Kraft", tabImu: "IMU", tabFw: "System", tabHelp: "Hilfe", infoT: "Erklärung ein-/ausblenden",
     window: "Fenster", nows: "Dieser Browser kann weder auf Bluetooth noch auf USB-Seriell zugreifen. Bitte Chrome oder Edge verwenden (am PC/Mac oder auf Android), die Seite über https öffnen, oder in Brave Web Bluetooth aktivieren.",
     acc: "Beschleunigung (g)", gyr: "Drehrate (°/s)", orient: "Lage des Boards",
     flip: "Ansicht 180°", flipT: "Kamera auf die andere Seite stellen",
@@ -586,7 +586,6 @@ const TEXT = {
     fitNeed: "Für den Fit mindestens 3 Messpunkte mit Gewicht > 0 (und am besten einen bei 0 kg) aufnehmen.",
     fitRes: (e, n) => `Fit aus ${n} Punkten: mittlere Abweichung ${e} %. Mit „Ins Gerät schreiben“ übernehmen.`,
     calSaved: "# Kalibrierung im Gerät gespeichert", calErr: m => "Kalibrierung schreiben fehlgeschlagen: " + m,
-    tabImu: "IMU", tabCal: "Kalibrierung", tabFw: "System",
     appVerL: "Version dieser App:", staleT: "Während des Updates nicht aktuell",
     fwWait: "Übertragen. Board startet neu und installiert das Update, verbinde danach automatisch …",
     fwDone: v => `Update fertig, Firmware ${v} läuft.`, fwRolled: (v, w) => `Board läuft mit ${w} statt ${v}: Das Update wurde nicht übernommen (zurückgerollt?).`,
@@ -597,7 +596,6 @@ const TEXT = {
     fwAsk: (v, c) => `Firmware ${v} auf das Board übertragen? Installiert ist ${c}. Das Board startet danach neu.`,
     fwUp: (p, kb) => `Übertrage … ${p} % (${kb} kB/s)`, fwSame: "Diese Version ist bereits installiert.",
     fwErr: m => "Update fehlgeschlagen: " + m, fwBusy: "Update läuft …",
-    tabAlign: "Ausrichtung", tabGait: "Labormessung",
     alTitle: "Ausrichtung des Sensors am Unterschenkel",
     alIntro: "Bestimmt die Drehachse des Unterschenkels für die Schritterkennung. Ohne Kalibrierung schätzt die Firmware sie beim Gehen selbst.",
     alMode: "Bewegung:", alWalk: "Gehen (10–20 Schritte geradeaus)", alPend: "Pendeln (im Sitzen, Unterschenkel frei hängend)",
@@ -636,7 +634,7 @@ const TEXT = {
     gMsw: "Schwung max. (°/s)", gRom: "Unterschenkel-Ausschlag (°)", gCv: "Variabilität DS (CV %)", gThHeel: "Ferse %",
     gSrcBle: "live per Bluetooth", gSrcUsb: "live per USB", gSrcNone: "nicht verbunden",
     gClearAsk: "Alle Schritte aus der Liste löschen? Beim nächsten Verbinden werden sie nicht wieder geladen; der Zähler im Gerät beginnt erst nach dem Aus- und Einschalten wieder bei 0.", gLoaded: n => `# ${n} Doppelschritte vom Gerät geladen`, gNew: "# Gerät neu gestartet: neue Messreihe",
-    tabLog: "Dauermessung", dlTitle: "Dauermessung im Gerät", dlStateL: "Zustand", dlMemL: "Speicher belegt", dlDaysL: "Platz für ≈ Tage",
+    dlTitle: "Dauermessung im Gerät", dlStateL: "Zustand", dlMemL: "Speicher belegt", dlDaysL: "Platz für ≈ Tage",
     dlClockL: "Uhrzeit im Gerät", dlSessL: "Laufende Messung:", dlPseudoL: "Pseudonym", dlSideL: "Seite", dlThrL: "Schwelle (kg)",
     dlLeft: "links", dlRight: "rechts", dlSideNone: "nicht angegeben", dlEraseFirstL: "Speicher vorher löschen",
     dlStartB: "Messung starten", dlStopB: "Messung beenden", dlMarkB: "Markierung setzen",
@@ -705,7 +703,7 @@ const TEXT = {
     vSaved: (f, d, n) => `# Video ${f} gespeichert (${d} s, ${n} Doppelschritte)`,
   },
   en: {
-    tabGaitS: "Lab", tabLogS: "Long-term", tabAlignS: "Axis", tabCalS: "Calib.", tabImuS: "IMU", tabFwS: "System", tabHelp: "Manual", tabHelpS: "Help", infoT: "Show/hide explanation",
+    tabGait: "Lab", tabLog: "Long-term", tabAlign: "Axis", tabCal: "Force", tabImu: "IMU", tabFw: "System", tabHelp: "Help", infoT: "Show/hide explanation",
     window: "Window", nows: "This browser can access neither Bluetooth nor USB serial. Please use Chrome or Edge (desktop or Android), open the page via https, or enable Web Bluetooth in Brave.",
     acc: "Acceleration (g)", gyr: "Angular rate (°/s)", orient: "Board orientation",
     flip: "View 180°", flipT: "Move the camera to the other side",
@@ -736,7 +734,6 @@ const TEXT = {
     fitNeed: "The fit needs at least 3 points with weight > 0 (ideally one at 0 kg as well).",
     fitRes: (e, n) => `Fit from ${n} points: mean deviation ${e} %. Use “Write to device” to keep it.`,
     calSaved: "# Calibration saved in the device", calErr: m => "Writing calibration failed: " + m,
-    tabImu: "IMU", tabCal: "Calibration", tabFw: "System",
     appVerL: "Version of this app:", staleT: "Not current during the update",
     fwWait: "Transferred. The board restarts and installs the update, reconnecting automatically …",
     fwDone: v => `Update done, firmware ${v} is running.`, fwRolled: (v, w) => `The board runs ${w} instead of ${v}: the update was not applied (rolled back?).`,
@@ -747,7 +744,6 @@ const TEXT = {
     fwAsk: (v, c) => `Transfer firmware ${v} to the board? Installed: ${c}. The board restarts afterwards.`,
     fwUp: (p, kb) => `Transferring … ${p} % (${kb} kB/s)`, fwSame: "This version is already installed.",
     fwErr: m => "Update failed: " + m, fwBusy: "Update running …",
-    tabAlign: "Alignment", tabGait: "Lab measurement",
     alTitle: "Sensor alignment on the shank",
     alIntro: "Determines the shank's rotation axis for step detection. Without it, the firmware estimates the axis while walking.",
     alMode: "Movement:", alWalk: "Walking (10–20 steps straight ahead)", alPend: "Pendulum (seated, shank hanging freely)",
@@ -786,7 +782,7 @@ const TEXT = {
     gTable: "Latest strides", gThStride: "Dur. ms", gThStance: "Stance %", gThPeak: "F max", gThMean: "F stance", gThSw: "F swing",
     gSrcBle: "live via Bluetooth", gSrcUsb: "live via USB", gSrcNone: "not connected",
     gClearAsk: "Delete all steps from the list? They are not loaded again on the next connect; the counter in the device only restarts at 0 after switching it off and on.", gLoaded: n => `# ${n} strides loaded from the device`, gNew: "# Device restarted: new series",
-    tabLog: "Long-term", dlTitle: "Long-term measurement in the device", dlStateL: "State", dlMemL: "Memory used", dlDaysL: "Room for ≈ days",
+    dlTitle: "Long-term measurement in the device", dlStateL: "State", dlMemL: "Memory used", dlDaysL: "Room for ≈ days",
     dlClockL: "Device clock", dlSessL: "Running measurement:", dlPseudoL: "Pseudonym", dlSideL: "Side", dlThrL: "Threshold (kg)",
     dlLeft: "left", dlRight: "right", dlSideNone: "not specified", dlEraseFirstL: "Erase memory first",
     dlStartB: "Start measurement", dlStopB: "Stop measurement", dlMarkB: "Set marker",
